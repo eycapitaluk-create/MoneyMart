@@ -1,9 +1,8 @@
-// src/components/CommonUI.jsx
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, BarChart2, TrendingUp, Users, BookOpen, Lock, 
-  Menu, X, LogIn, Moon, Sun, User, LogOut 
+  Menu, X, LogIn, Moon, Sun, User, LogOut, ShieldCheck 
 } from 'lucide-react';
 
 // 네비게이션 아이템 컴포넌트
@@ -22,15 +21,16 @@ const NavItem = ({ to, icon, text, active, onClick }) => (
   </Link>
 );
 
-// ★ 핵심 수정: Header가 'user'와 'handleLogout'을 props로 받습니다.
 export const Header = ({ darkMode, toggleDarkMode, user, handleLogout }) => {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // ★ 여기에 'ローン診断' 메뉴가 추가되어 있어야 보입니다!
   const navLinks = [
     { path: '/', text: 'ホーム', icon: <Home size={18} /> },
     { path: '/funds', text: 'ファンド', icon: <BarChart2 size={18} /> },
     { path: '/market', text: 'マーケット', icon: <TrendingUp size={18} /> },
+    { path: '/loan', text: 'ローン診断', icon: <ShieldCheck size={18} /> }, // ★ 이 줄이 핵심입니다
     { path: '/community', text: 'コミュニティ', icon: <Users size={18} /> },
     { path: '/learn', text: '学ぶ・ツール', icon: <BookOpen size={18} /> },
     { path: '/premium', text: 'プレミアム', icon: <Lock size={18} /> },
@@ -63,7 +63,7 @@ export const Header = ({ darkMode, toggleDarkMode, user, handleLogout }) => {
           ))}
         </nav>
 
-        {/* 우측 유틸리티 */}
+        {/* 우측 유틸리티 (로그인/다크모드) */}
         <div className="hidden md:flex items-center gap-3 flex-shrink-0 ml-auto xl:ml-0">
           <button 
             onClick={toggleDarkMode}
@@ -72,7 +72,6 @@ export const Header = ({ darkMode, toggleDarkMode, user, handleLogout }) => {
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
-          {/* ★ 여기가 핵심입니다: user가 있으면 마이페이지, 없으면 로그인 버튼 표시 */}
           {user ? (
             <div className="flex items-center gap-2 animate-fadeIn">
               <Link 
@@ -102,7 +101,7 @@ export const Header = ({ darkMode, toggleDarkMode, user, handleLogout }) => {
           )}
         </div>
 
-        {/* 모바일 메뉴 버튼 */}
+        {/* 모바일 메뉴 버튼 (햄버거) */}
         <div className="flex xl:hidden ml-auto items-center gap-2">
              <button 
               onClick={toggleDarkMode}
@@ -134,7 +133,6 @@ export const Header = ({ darkMode, toggleDarkMode, user, handleLogout }) => {
               />
             ))}
             <div className="border-t border-gray-100 dark:border-slate-800 pt-3 mt-2">
-               {/* 모바일에서도 로그인 상태 반영 */}
                {user ? (
                  <>
                     <Link to="/mypage" className="flex items-center gap-3 px-3 py-3 text-sm font-bold text-gray-700 dark:text-gray-200" onClick={() => setIsMenuOpen(false)}>
@@ -157,7 +155,6 @@ export const Header = ({ darkMode, toggleDarkMode, user, handleLogout }) => {
   );
 };
 
-// Footer는 기존 코드 그대로 (생략하지 않고 포함)
 export const Footer = () => (
   <footer className="bg-gray-50 dark:bg-slate-950 border-t border-gray-200 dark:border-slate-800 pt-16 pb-8 mt-auto transition-colors">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -175,6 +172,7 @@ export const Footer = () => (
           <ul className="space-y-3 text-sm text-gray-500 dark:text-gray-400 font-medium">
             <li><Link to="/funds" className="hover:text-orange-500">ファンド検索</Link></li>
             <li><Link to="/market" className="hover:text-orange-500">マーケット情報</Link></li>
+            <li><Link to="/loan" className="hover:text-orange-500">ローン診断</Link></li>
             <li><Link to="/premium" className="hover:text-orange-500">プレミアムプラン</Link></li>
           </ul>
         </div>
@@ -198,7 +196,6 @@ export const Footer = () => (
   </footer>
 );
 
-// ★ 마지막 점검: CommonUI가 App.jsx에서 user를 받아 Header에 넘겨줍니다.
 const CommonUI = ({ children, darkMode, toggleDarkMode, user, handleLogout }) => {
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">

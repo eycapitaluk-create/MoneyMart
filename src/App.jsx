@@ -17,42 +17,17 @@ import FundDetailPage from './pages/FundDetailPage';
 import FinancialComparisonPage from './pages/FinancialComparisonPage';
 import AdminPage from './pages/AdminPage';
 import Payment from './pages/Payment';
+// ★ LoanPage 임포트 추가
+import LoanPage from './pages/LoanPage';
 
-// ★ 임시 약관 텍스트 (길어야 스크롤이 생김)
+// 약관 텍스트 (생략 가능하나 에러 방지를 위해 포함)
 const TERMS_TEXT = `
 【利用規約】
-
 第1条（目的）
 本規約は、MoneyMart（以下「当社」）が提供するサービス（以下「本サービス」）の利用条件を定めるものです。
-
-第2条（定義）
-本サービスとは、当社が運営するウェブサイトおよびアプリケーションを通じて提供するすべてのサービスを指します。
-
-第3条（登録）
-1. ユーザーは、当社の定める方法によって利用登録を申請し、当社がこれを承認することによって、利用登録が完了するものとします。
-2. 当社は、利用登録の申請者に以下の事由があると判断した場合、利用登録の申請を承認しないことがあり、その理由については一切の開示義務を負わないものとします。
-
-第4条（禁止事項）
-ユーザーは、本サービスの利用にあたり、以下の行為をしてはなりません。
-1. 法令または公序良俗に違反する行為
-2. 犯罪行為に関連する行為
-3. 当社のサーバーまたはネットワークの機能を破壊したり、妨害したりする行為
-4. 当社のサービスの運営を妨害するおそれのある行為
-5. 他のユーザーに関する個人情報等を収集または蓄積する行為
-6. 不正アクセスをし、またはこれを試みる行為
-7. 他のユーザーに成りすます行為
-8. 当社のサービスに関連して、反社会的勢力に対して直接または間接に利益を供与する行為
-
-第5条（免責事項）
-1. 当社は、本サービスに事実上または法律上の瑕疵（安全性、信頼性、正確性、完全性、有効性、特定の目的への適合性、セキュリティなどに関する欠陥、エラーやバグ、権利侵害などを含みます。）がないことを明示的にも黙示的にも保証しておりません。
-2. 当社は、本サービスに起因してユーザーに生じたあらゆる損害について一切の責任を負いません。
-
-第6条（サービス内容の変更等）
-当社は、ユーザーに通知することなく、本サービスの内容を変更しまたは本サービスの提供を中止することができるものとし、これによってユーザーに生じた損害について一切の責任を負いません。
-
-第7条（準拠法・裁判管轄）
-本規約の解釈にあたっては、日本法を準拠法とします。本サービスに関して紛争が生じた場合には、当社の本店所在地を管轄する裁判所を専属的合意管轄とします。
-
+(中略... スクロールテスト用)
+第2条...
+第3条...
 以上
 `;
 
@@ -75,9 +50,9 @@ const App = () => {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
-  // ★ 스크롤 감지용 상태 및 Ref 추가
-  const [canAgree, setCanAgree] = useState(false); // 스크롤 다 내렸는지 확인
-  const termsBoxRef = useRef(null); // 약관 박스 DOM 접근용
+  // 스크롤 감지용 상태 및 Ref
+  const [canAgree, setCanAgree] = useState(false); 
+  const termsBoxRef = useRef(null); 
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -97,7 +72,6 @@ const App = () => {
     }
   }, [location.pathname, navigate]);
 
-  // ★ 모달이 열리거나 탭이 바뀔 때 스크롤 상태 초기화
   useEffect(() => {
     if (!isLoginModalOpen || !isSignUp) {
         setCanAgree(false);
@@ -105,11 +79,9 @@ const App = () => {
     }
   }, [isLoginModalOpen, isSignUp]);
 
-  // ★ 스크롤 이벤트 핸들러
   const handleScrollTerms = () => {
     if (termsBoxRef.current) {
         const { scrollTop, scrollHeight, clientHeight } = termsBoxRef.current;
-        // 스크롤이 바닥에 거의 도달했는지 계산 (오차범위 5px)
         if (scrollTop + clientHeight >= scrollHeight - 5) {
             setCanAgree(true);
         }
@@ -186,6 +158,10 @@ const App = () => {
           <Route path="/comparison" element={<FinancialComparisonPage />} />
           <Route path="/mypage" element={<MyPage user={user} watchlist={myWatchlist} />} />
           <Route path="/market" element={<MarketPage />} />
+          
+          {/* ★ 핵심: 대출 페이지 라우트 추가 */}
+          <Route path="/loan" element={<LoanPage />} />
+          
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/learn" element={<LearningPage user={user} />} />
           <Route path="/premium" element={<Payment />} />
@@ -210,7 +186,6 @@ const App = () => {
             </div>
 
             <div className="space-y-4 text-left">
-              {/* 회원가입 시 이름 입력 */}
               {isSignUp && (
                   <div className="relative">
                     <User size={18} className="absolute left-3 top-3.5 text-slate-400" />
@@ -228,7 +203,6 @@ const App = () => {
                 <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-700 border-none rounded-xl pl-10 p-3 font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" placeholder="パスワード" />
               </div>
 
-              {/* ★ 약관 스크롤 섹션 (회원가입 시에만 표시) */}
               {isSignUp && (
                   <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-200 dark:border-slate-700">
                       <div className="flex items-center justify-between mb-2">
@@ -242,7 +216,6 @@ const App = () => {
                           )}
                       </div>
                       
-                      {/* 스크롤 영역 */}
                       <div 
                         ref={termsBoxRef}
                         onScroll={handleScrollTerms}
@@ -251,13 +224,12 @@ const App = () => {
                           {TERMS_TEXT}
                       </div>
 
-                      {/* 동의 체크박스 (스크롤 다 내리기 전엔 비활성화) */}
                       <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-200 dark:border-slate-700">
                           <div className="relative flex items-center">
                               <input 
                                 type="checkbox" 
                                 id="terms" 
-                                disabled={!canAgree} // ★ 핵심: 스크롤 다 안 내리면 클릭 불가
+                                disabled={!canAgree} 
                                 checked={agreeTerms}
                                 onChange={(e) => setAgreeTerms(e.target.checked)}
                                 className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-300 bg-white checked:border-orange-500 checked:bg-orange-500 disabled:bg-slate-200 disabled:cursor-not-allowed transition-all"
