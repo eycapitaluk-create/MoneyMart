@@ -8,7 +8,7 @@ import {
 
 const LoanPage = () => {
   // --------------------------------------------------------------------------
-  // 1. 상태값 (State)
+  // 1. 상태값 (State) - 초기값은 숫자지만 빈 문자열 입력 가능
   // --------------------------------------------------------------------------
   const [homeLoan, setHomeLoan] = useState(3500); 
   const [carLoan, setCarLoan] = useState(200);
@@ -17,7 +17,7 @@ const LoanPage = () => {
   const [annualIncome, setAnnualIncome] = useState(550);
   const [monthlyRepayment, setMonthlyRepayment] = useState(13);
 
-  // ★ 수정됨: 안전한 숫자 변환 함수 (빈 칸이면 0으로 계산하되, 입력창은 유지)
+  // ★ 안전한 숫자 변환 함수 (빈 칸이면 0으로 계산하되, 입력창 값은 유지)
   const getNum = (val) => (val === '' ? 0 : Number(val));
 
   // --------------------------------------------------------------------------

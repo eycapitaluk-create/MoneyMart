@@ -1,9 +1,12 @@
+// src/components/CommonUI.jsx
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, BarChart2, TrendingUp, Users, BookOpen, Lock, 
   Menu, X, LogIn, Moon, Sun, User, LogOut, ShieldCheck 
 } from 'lucide-react';
+// ★ ChatBot import 추가
+import ChatBot from './ChatBot'; 
 
 // 네비게이션 아이템 컴포넌트
 const NavItem = ({ to, icon, text, active, onClick }) => (
@@ -198,12 +201,15 @@ export const Footer = () => (
 
 const CommonUI = ({ children, darkMode, toggleDarkMode, user, handleLogout }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 transition-colors relative"> {/* relative 추가 */}
       <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} user={user} handleLogout={handleLogout} />
       <main className="flex-grow">
         {children}
       </main>
       <Footer />
+      
+      {/* ★★★ 여기에 챗봇 추가! 모든 페이지에 뜹니다 ★★★ */}
+      <ChatBot /> 
     </div>
   );
 };
