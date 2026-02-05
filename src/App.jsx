@@ -17,11 +17,11 @@ import FundDetailPage from './pages/FundDetailPage';
 import FinancialComparisonPage from './pages/FinancialComparisonPage';
 import AdminPage from './pages/AdminPage';
 import Payment from './pages/Payment';
-// ★ LoanPage 임포트 추가
-import LoanPage from './pages/LoanPage';
+// ★ ProductPage (구 LoanPage)
 import ProductPage from './pages/ProductPage';
+// ★★★ [중요] RiskModal import 추가! ★★★
+import RiskModal from './components/RiskModal';
 
-// 약관 텍스트 (생략 가능하나 에러 방지를 위해 포함)
 const TERMS_TEXT = `
 【利用規約】
 第1条（目的）
@@ -51,7 +51,6 @@ const App = () => {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
-  // 스크롤 감지용 상태 및 Ref
   const [canAgree, setCanAgree] = useState(false); 
   const termsBoxRef = useRef(null); 
 
@@ -159,10 +158,7 @@ const App = () => {
           <Route path="/comparison" element={<FinancialComparisonPage />} />
           <Route path="/mypage" element={<MyPage user={user} watchlist={myWatchlist} />} />
           <Route path="/market" element={<MarketPage />} />
-          
-          {/* ★ 핵심: 대출 페이지 라우트 추가 */}
           <Route path="/products" element={<ProductPage />} />
-          
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/learn" element={<LearningPage user={user} />} />
           <Route path="/premium" element={<Payment />} />
@@ -171,6 +167,12 @@ const App = () => {
         </Routes>
       </CommonUI>
       
+      {/* ★★★ [중요] 여기에 RiskModal 컴포넌트를 심어야 화면에 뜹니다! ★★★ */}
+      <RiskModal 
+        isOpen={isRiskModalOpen} 
+        onClose={() => setIsRiskModalOpen(false)} 
+      />
+
       {/* Login / Signup Modal */}
       {isLoginModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">

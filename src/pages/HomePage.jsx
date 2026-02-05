@@ -84,17 +84,19 @@ const HomePage = ({ openRiskModal }) => {
           </p>
           <div className="flex flex-col md:flex-row gap-4 justify-center md:justify-start">
             <button 
-              onClick={() => navigate('/fund')}
+              /* 🚩 수정됨: 경로를 /fund -> /funds 로 변경 (복수형) */
+              onClick={() => navigate('/funds')}
               className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2"
             >
               ファンドを探す <ArrowRight size={20}/>
             </button>
             
             <button 
+              /* 🚩 확인: App.js에서 openRiskModal 함수를 안 내려주면 작동 안 함. 일단 여기 코드는 정상 */
               onClick={openRiskModal}
               className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold backdrop-blur-sm transition"
             >
-              リスク診断
+              投資スタイルチェック
             </button>
           </div>
         </div>
@@ -185,7 +187,8 @@ const HomePage = ({ openRiskModal }) => {
             <p className="text-gray-500 text-sm mt-1">今、投資家に選ばれている人気商品</p>
           </div>
           <button 
-            onClick={() => navigate('/fund')}
+            /* 🚩 수정됨: 경로를 /fund -> /funds 로 변경 */
+            onClick={() => navigate('/funds')}
             className="text-orange-600 font-bold text-sm hover:underline"
           >
             もっと見る →
@@ -196,7 +199,7 @@ const HomePage = ({ openRiskModal }) => {
           {featuredFunds.map((fund) => (
             <div 
               key={fund.id}
-              /* ✅ 중요: 상세 페이지로 갈 때 'id'를 사용하도록 통일 */
+              /* ✅ 중요: 상세 페이지는 /fund/:id 가 맞습니다 (단수형) */
               onClick={() => navigate(`/fund/${fund.id}`)}
               className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition cursor-pointer group"
             >
