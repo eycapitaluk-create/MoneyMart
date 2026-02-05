@@ -1,4 +1,3 @@
-// src/pages/FinancialComparisonPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -8,42 +7,52 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 
-// 공통 데이터 소스
-import { funds } from '../data/mockData';
+import { funds } from '../data/realData';
 
-const FinancialComparisonPage = () => {
+const ComparisonPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   // 1. 데이터 변환
-  const allProducts = funds.map(fund => ({
-    id: fund.fundCode,
-    name: fund.fundName,
-    type: fund.category,
-    fee: fund.trustFee,
-    returnRate: fund.return1y || fund.prevComparisonPercent, // 연간 리턴이 있으면 쓰고, 없으면 전일비 사용
-    risk: fund.riskLevel,
-    company: fund.managementCompany,
-    netAssets: fund.netAssets
-  }));
+  const allProducts = funds.map(fund => {
+     const parsePercent = (val) => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        return parseFloat(val.replace('%', '').replace(',', ''));
+     };
+
+     return {
+        id: fund.id,
+        name: fund.fundName,
+        type: fund.category,
+        // ✅ 수정: 화면에 보여줄 코드는 'shortCode'(4자리)를 우선 사용
+        // shortCode가 없으면 fundCode를 쓰고, 그것도 없으면 공란
+        displayCode: fund.shortCode || fund.fundCode || '', 
+        fee: parsePercent(fund.trustFee),
+        returnRate: parsePercent(fund.annualReturn || fund.prevComparisonPercent),
+        risk: fund.riskLevel,
+        company: fund.managementCompany,
+        netAssets: fund.aum
+     };
+  });
 
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // ★ 핵심 수정: 데이터 수신 로직 개선
   useEffect(() => {
     if (location.state) {
-        // Case 1: 펀드 리스트에서 '여러 개'를 선택해서 온 경우 (selectedFundIds)
         if (location.state.selectedFundIds) {
             setSelectedIds(location.state.selectedFundIds);
         }
-        // Case 2: 상세 페이지에서 '하나'만 선택해서 온 경우 (initialFundId)
         else if (location.state.initialFundId) {
-            if (!selectedIds.includes(location.state.initialFundId)) {
-                setSelectedIds(prev => {
-                    if (prev.length >= 3) return prev;
-                    return [...prev, location.state.initialFundId];
-                });
-            }
+            setSelectedIds(prev => {
+                if (prev.includes(location.state.initialFundId)) return prev;
+                if (prev.length >= 3) return [location.state.initialFundId, ...prev.slice(0, 2)];
+                return [...prev, location.state.initialFundId];
+            });
+        }
+    } else {
+        if (allProducts.length >= 2) {
+            setSelectedIds([allProducts[0].id, allProducts[1].id]);
         }
     }
   }, [location.state]);
@@ -69,14 +78,14 @@ const FinancialComparisonPage = () => {
   }));
 
   return (
-    <div className="pb-20 animate-fadeIn bg-slate-50 min-h-screen">
+    <div className="pb-20 animate-fadeIn bg-slate-50 min-h-screen font-sans">
       
       {/* 헤더 */}
       <div className="bg-white sticky top-0 z-30 border-b border-gray-200 p-4 flex items-center gap-4 shadow-sm">
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition">
           <ArrowLeft size={24} className="text-gray-600"/>
         </button>
-        <h1 className="text-xl font-bold text-gray-900">金融商品比較</h1>
+        <h1 className="text-xl font-bold text-gray-900">ファンド比較</h1>
         <span className="ml-auto text-xs font-bold bg-orange-100 text-orange-600 px-3 py-1 rounded-full">
           {selectedIds.length} / 3 選択中
         </span>
@@ -87,8 +96,8 @@ const FinancialComparisonPage = () => {
         {/* 1. 상품 선택 영역 */}
         <div className="space-y-3">
           <h3 className="font-bold text-gray-700 text-sm px-1 flex items-center gap-2">
-            <span>👇 比較する商品を選択</span>
-            <span className="text-xs font-normal text-gray-400">(タップで選択/解除)</span>
+            <span>👇 比較するファンドを選択</span>
+            <span className="text-xs font-normal text-gray-400">(タップで追加/解除)</span>
           </h3>
           
           <div className="flex gap-4 overflow-x-auto pb-6 px-1 scrollbar-hide">
@@ -110,9 +119,17 @@ const FinancialComparisonPage = () => {
                 )}
                 
                 <div>
-                  <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold mb-2 inline-block truncate max-w-full">
-                    {product.type}
-                  </span>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold truncate max-w-[70%]">
+                        {product.type}
+                    </span>
+                    {/* ✅ 카드 우측 상단에 짧은 코드 표시 */}
+                    {product.displayCode && (
+                        <span className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                            {product.displayCode}
+                        </span>
+                    )}
+                  </div>
                   <h4 className="font-bold text-sm text-gray-900 leading-snug line-clamp-2 break-keep">
                     {product.name}
                   </h4>
@@ -151,11 +168,19 @@ const FinancialComparisonPage = () => {
                             <th className="p-4 w-24 bg-gray-50 font-medium whitespace-nowrap">比較項目</th>
                             {selectedProducts.map(p => (
                             <th key={p.id} className="p-4 min-w-[140px] font-bold text-gray-900 align-top">
-                                <div className="flex justify-between items-start gap-2">
-                                    <span className="line-clamp-2">{p.name}</span>
-                                    <button onClick={() => toggleSelection(p.id)} className="text-gray-300 hover:text-red-500 shrink-0">
-                                        <X size={16}/>
-                                    </button>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex justify-between items-start">
+                                        {/* ✅ 테이블 헤더에도 짧은 코드 표시 */}
+                                        {p.displayCode && (
+                                            <span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded inline-block mb-1">
+                                                {p.displayCode}
+                                            </span>
+                                        )}
+                                        <button onClick={() => toggleSelection(p.id)} className="text-gray-300 hover:text-red-500 shrink-0 ml-auto">
+                                            <X size={16}/>
+                                        </button>
+                                    </div>
+                                    <span className="line-clamp-2 leading-snug">{p.name}</span>
                                 </div>
                             </th>
                             ))}
@@ -235,7 +260,7 @@ const FinancialComparisonPage = () => {
              <div className="bg-gray-50 p-4 rounded-full mb-4">
                 <AlertCircle className="text-gray-400" size={32} />
              </div>
-             <p className="text-gray-600 font-bold text-lg mb-1">比較する商品がありません</p>
+             <p className="text-gray-600 font-bold text-lg mb-1">比較するファンドがありません</p>
              <p className="text-sm text-gray-400">上のリストから商品をタップして選択してください (最大3つ)</p>
           </div>
         )}
@@ -244,4 +269,4 @@ const FinancialComparisonPage = () => {
   );
 };
 
-export default FinancialComparisonPage;
+export default ComparisonPage;

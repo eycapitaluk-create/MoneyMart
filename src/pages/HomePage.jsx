@@ -1,19 +1,26 @@
-// src/pages/HomePage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowRight, TrendingUp, Shield, BarChart2, 
-  Crown, ChevronRight, CreditCard, Landmark, Coins 
+  Crown, ChevronRight, CreditCard, Landmark 
 } from 'lucide-react';
 
-// 데이터 가져오기
-import { funds, marketIndices } from '../data/mockData';
+// ✅ 수정됨: 가짜 데이터(mockData) 대신 실제 데이터(realData) 사용
+import { funds } from '../data/realData';
 
 const HomePage = ({ openRiskModal }) => {
   const navigate = useNavigate();
 
   // 상위 3개 펀드만 추천 상품으로 표시
   const featuredFunds = funds.slice(0, 3);
+
+  // 시장 지수 데이터 (realData에 없으므로 여기서 직접 정의)
+  const marketIndices = [
+    { name: "日経平均", value: 38500.12, change: 1.25 },
+    { name: "TOPIX", value: 2715.40, change: 0.88 },
+    { name: "NYダウ", value: 39800.50, change: -0.15 },
+    { name: "ドル/円", value: 148.55, change: 0.05 },
+  ];
 
   // B2B 광고 데이터
   const rollingAds = [
@@ -62,7 +69,7 @@ const HomePage = ({ openRiskModal }) => {
   }, []);
 
   return (
-    <div className="space-y-12 pb-12 animate-fadeIn">
+    <div className="space-y-12 pb-12 animate-fadeIn font-sans">
       
       {/* 1. 히어로 섹션 */}
       <section className="relative bg-gradient-to-r from-gray-900 to-gray-800 text-white py-20 px-4 overflow-hidden">
@@ -77,7 +84,7 @@ const HomePage = ({ openRiskModal }) => {
           </p>
           <div className="flex flex-col md:flex-row gap-4 justify-center md:justify-start">
             <button 
-              onClick={() => navigate('/funds')}
+              onClick={() => navigate('/fund')}
               className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2"
             >
               ファンドを探す <ArrowRight size={20}/>
@@ -178,7 +185,7 @@ const HomePage = ({ openRiskModal }) => {
             <p className="text-gray-500 text-sm mt-1">今、投資家に選ばれている人気商品</p>
           </div>
           <button 
-            onClick={() => navigate('/funds')}
+            onClick={() => navigate('/fund')}
             className="text-orange-600 font-bold text-sm hover:underline"
           >
             もっと見る →
@@ -188,8 +195,9 @@ const HomePage = ({ openRiskModal }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {featuredFunds.map((fund) => (
             <div 
-              key={fund.fundCode}
-              onClick={() => navigate(`/fund/${fund.fundCode}`)}
+              key={fund.id}
+              /* ✅ 중요: 상세 페이지로 갈 때 'id'를 사용하도록 통일 */
+              onClick={() => navigate(`/fund/${fund.id}`)}
               className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition cursor-pointer group"
             >
               <div className="flex justify-between items-start mb-4">
@@ -204,7 +212,8 @@ const HomePage = ({ openRiskModal }) => {
               <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
                 {fund.fundName}
               </h3>
-              <p className="text-xs text-gray-500 mb-4">{fund.managementCompany}</p>
+              {/* fund.fundNameEn이 있으면 보여주고 없으면 운용사명 표시 */}
+              <p className="text-xs text-gray-500 mb-4">{fund.fundNameEn || fund.managementCompany}</p>
               
               <div className="flex justify-between items-end border-t border-gray-100 pt-4">
                 <div>
@@ -213,8 +222,8 @@ const HomePage = ({ openRiskModal }) => {
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-gray-400">前日比</div>
-                  <div className={`font-bold ${fund.prevComparison >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                    {fund.prevComparison >= 0 ? '+' : ''}{fund.prevComparisonPercent}%
+                  <div className={`font-bold ${(fund.prevComparison || 0) >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                    {(fund.prevComparison || 0) >= 0 ? '+' : ''}{fund.prevComparisonPercent}%
                   </div>
                 </div>
               </div>
@@ -253,7 +262,7 @@ const HomePage = ({ openRiskModal }) => {
         </div>
       </section>
 
-      {/* ★ 6. 면책 조항 (신규 추가됨) */}
+      {/* 6. 면책 조항 */}
       <div className="max-w-7xl mx-auto px-4 pb-4">
          <div className="border-t border-gray-100 pt-8 text-center">
              <p className="text-[10px] md:text-xs text-gray-400 leading-relaxed max-w-4xl mx-auto">
