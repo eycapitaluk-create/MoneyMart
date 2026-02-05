@@ -5,13 +5,12 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   
-  // ▼▼▼ 이 줄을 꼭 추가해 주세요! ▼▼▼
+  // ▼▼▼ 다크모드 설정 (필수) ▼▼▼
   darkMode: 'class', 
-  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
   
   theme: {
     extend: {
-      // (기존에 애니메이션 설정 등 있던 거 그대로 두시면 됩니다)
+      // 애니메이션 설정 (앱에서 부드럽게 뜨는 효과용)
       animation: {
         fadeIn: 'fadeIn 0.5s ease-out',
       },

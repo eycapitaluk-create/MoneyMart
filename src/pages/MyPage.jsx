@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import { 
   Wallet, Plus, Check, Edit2, Trash2, Clock, 
-  PieChart as PieIcon, Utensils, Calculator, Save, TrendingUp, DollarSign, Crown // Crown 아이콘 추가
+  PieChart as PieIcon, Utensils, Calculator, Save, TrendingUp, DollarSign, Crown, Target // Target 아이콘 추가
 } from 'lucide-react';
 // ▼▼▼ Supabase 연결 ▼▼▼
 import { supabase } from '../lib/supabase';
@@ -202,7 +202,6 @@ const MyPage = ({ user }) => {
     if (!error && data) { setExpenses(prev => [data[0], ...prev]); setIsAddExpenseModalOpen(false); } else { alert("Error: " + error.message); }
   };
 
-  // ★★★ [ 핵심 변경 사항 ] 프리미엄 체크 ★★★
   const isPremium = user?.plan === 'premium';
 
   return (
@@ -221,8 +220,8 @@ const MyPage = ({ user }) => {
         <div className="text-center md:text-left z-10">
           <h2 className={`text-3xl font-black mb-1 ${isPremium ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{user?.name || 'ゲスト'}</h2>
           
-          <div className="flex gap-2 justify-center md:justify-start items-center mb-2">
-            {/* ★★★ 등급 표시 배지 (동적으로 변함!) ★★★ */}
+          <div className="flex flex-wrap gap-2 justify-center md:justify-start items-center mb-2">
+            {/* ★★★ 등급 표시 배지 ★★★ */}
             <span className={`text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 ${
               isPremium 
                 ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg' 
@@ -231,6 +230,14 @@ const MyPage = ({ user }) => {
               {isPremium ? <Crown size={12} fill="currentColor"/> : null}
               {isPremium ? 'Premium Plan' : 'Free Plan'}
             </span>
+
+            {/* ★★★ 리스크 프로필 표시 (여기 추가됨!) ★★★ */}
+            {user?.riskProfile && (
+              <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-slate-200 dark:border-slate-600">
+                <Target size={12} className="text-blue-500"/>
+                {user.riskProfile}
+              </span>
+            )}
 
             <button onClick={()=>setIsSimModalOpen(true)} className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 transition ml-1">
                <Calculator size={10}/> Simulator
