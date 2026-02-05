@@ -33,7 +33,7 @@ export const Header = ({ darkMode, toggleDarkMode, user, handleLogout }) => {
     { path: '/', text: 'ホーム', icon: <Home size={18} /> },
     { path: '/funds', text: 'ファンド', icon: <BarChart2 size={18} /> },
     { path: '/market', text: 'マーケット', icon: <TrendingUp size={18} /> },
-    { path: '/loan', text: 'ローン診断', icon: <ShieldCheck size={18} /> }, // ★ 이 줄이 핵심입니다
+    { path: '/Products', text: '金融商品比較', icon: <ShieldCheck size={18} /> }, // ★ 이 줄이 핵심입니다
     { path: '/community', text: 'コミュニティ', icon: <Users size={18} /> },
     { path: '/learn', text: '学ぶ・ツール', icon: <BookOpen size={18} /> },
     { path: '/premium', text: 'プレミアム', icon: <Lock size={18} /> },

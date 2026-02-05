@@ -3,11 +3,12 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip 
 } from 'recharts';
 import { 
-  Wallet, Plus, CreditCard, Bell, RefreshCw, Zap, 
-  TrendingUp, ShieldCheck, Trash2, X, ChevronRight, CheckCircle, Gift, Coins, Calendar 
+  Wallet, Bell, RefreshCw, 
+  TrendingUp, ShieldCheck, Trash2, X, Gift, Coins, Zap, 
+  // ★ 여기에 CreditCard가 빠져 있어서 에러가 났었습니다! 추가함.
+  CreditCard
 } from 'lucide-react';
 
-// --- [Dummy Data] 초기 데이터 세팅 ---
 const INITIAL_ASSETS = [
   { id: 1, name: '米国株 (Tesla)', buyPrice: 20000, currentPrice: 24800, qty: 10, color: '#EF4444' },
   { id: 2, name: '全世界株式', buyPrice: 15000, currentPrice: 14500, qty: 20, color: '#3B82F6' },
@@ -41,7 +42,6 @@ const INITIAL_POINTS = [
 const INITIAL_FURUSATO = { limit: 70000, donated: 45000 };
 
 export default function MoneyMartFinal() {
-  // --- [State] 상태 관리 ---
   const [assets, setAssets] = useState(INITIAL_ASSETS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [cards, setCards] = useState(INITIAL_CARDS);
@@ -50,15 +50,12 @@ export default function MoneyMartFinal() {
   const [points, setPoints] = useState(INITIAL_POINTS);
   const [furusato, setFurusato] = useState(INITIAL_FURUSATO);
   
-  // 지출 관리
   const [budget, setBudget] = useState(100000);
   const [spent, setSpent] = useState(65000);
 
-  // UI 상태
   const [isNotiOpen, setIsNotiOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
 
-  // --- [Logic] 계산 로직 ---
   const unreadCount = notifications.filter(n => !n.read).length;
   const totalPoint = points.reduce((acc, cur) => acc + cur.val, 0);
 
@@ -76,7 +73,6 @@ export default function MoneyMartFinal() {
     return { totalAsset: currentTotal, totalProfit: profit, profitRate: rate.toFixed(1), chartData: data };
   }, [assets]);
 
-  // --- [Handlers] 액션 핸들러 ---
   const handleReadNoti = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setIsNotiOpen(false);
@@ -116,7 +112,7 @@ export default function MoneyMartFinal() {
       setPoints([...points, { id: Date.now(), name: fd.get('name'), val: Number(fd.get('val')), color: 'bg-purple-500', icon: 'P' }]);
     }
     if (modalType === 'saving') {
-      const dateStr = fd.get('date').replace(/-/g, '.'); // YYYY-MM-DD -> YYYY.MM.DD 변환
+      const dateStr = fd.get('date').replace(/-/g, '.'); 
       setSavings([...savings, {
         id: Date.now(),
         name: fd.get('name'),
@@ -132,7 +128,7 @@ export default function MoneyMartFinal() {
         name: fd.get('name'),
         type: 'CARD',
         date: `毎月${fd.get('date')}日`,
-        dday: 30, // 임시값
+        dday: 30,
         color: 'from-indigo-500 to-purple-600'
       }]);
     }
@@ -145,12 +141,11 @@ export default function MoneyMartFinal() {
         icon: fd.get('name').charAt(0).toUpperCase()
       }]);
     }
-    
     setModalType(null);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12 pb-40 font-sans min-h-screen text-slate-800 dark:text-white">
+    <div className="max-w-7xl mx-auto px-6 py-12 pb-40 font-sans min-h-screen text-slate-800 dark:text-white animate-fadeIn">
       
       {/* 1. Header Area */}
       <div className="flex justify-between items-start mb-10 relative">
@@ -171,7 +166,6 @@ export default function MoneyMartFinal() {
             )}
           </button>
 
-          {/* Notification Panel */}
           {isNotiOpen && (
             <div className="absolute right-0 mt-4 w-96 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-fadeIn origin-top-right">
               <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
@@ -196,10 +190,10 @@ export default function MoneyMartFinal() {
 
       <div className="grid xl:grid-cols-3 gap-8">
         
-        {/* [Left Column] Main Dashboard (Assets & MoneyMon) */}
+        {/* [Left Column] */}
         <div className="xl:col-span-2 space-y-8">
           
-          {/* A. MoneyMon (Assistant) */}
+          {/* A. MoneyMon */}
           <div className="bg-gradient-to-r from-indigo-700 to-purple-700 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden group">
              <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/10 rounded-full blur-3xl group-hover:scale-110 transition duration-1000"></div>
              <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
@@ -222,7 +216,7 @@ export default function MoneyMartFinal() {
              </div>
           </div>
 
-          {/* B. Assets Portfolio (Big Numbers) */}
+          {/* B. Assets Portfolio */}
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 md:p-10 shadow-lg border border-slate-100 dark:border-slate-700">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <div>
@@ -279,11 +273,35 @@ export default function MoneyMartFinal() {
             </div>
           </div>
 
-          {/* C. Savings & Maturity (★★★ ADDED: +Button ★★★) */}
+          {/* AI Analysis Card */}
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full blur-[100px] opacity-20"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-6">
+                <div className="bg-white/10 p-4 rounded-full backdrop-blur-sm">
+                  <Zap size={32} className="text-yellow-400" fill="currentColor" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                    AI ポートフォリオ診断
+                    <span className="bg-blue-500 text-xs px-2 py-1 rounded-full font-black">BETA</span>
+                  </h3>
+                  <p className="text-slate-300 text-sm leading-relaxed">
+                    「米国株の比率が少し高めです。分散投資を検討しませんか？」<br/>
+                    AIがあなたの資産状況を分析し、アドバイスを提供します。
+                  </p>
+                </div>
+              </div>
+              <button className="shrink-0 bg-white text-slate-900 font-bold py-3 px-6 rounded-xl hover:bg-slate-100 transition shadow-md">
+                詳細レポートを見る
+              </button>
+            </div>
+          </div>
+
+          {/* C. Savings & Maturity */}
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg">
              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><ShieldCheck size={24} className="text-purple-500"/> 目標・満期管理</h3>
-                {/* ★ 추가 버튼 생성 ★ */}
                 <button onClick={() => setModalType('saving')} className="text-sm font-bold text-purple-600 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition">+ 追加</button>
              </div>
              <div className="space-y-4">
@@ -317,10 +335,10 @@ export default function MoneyMartFinal() {
           </div>
         </div>
 
-        {/* [Right Column] Utilities & Japanese Features */}
+        {/* [Right Column] */}
         <div className="xl:col-span-1 space-y-8">
            
-           {/* 1. Furusato Nozei (Hometown Tax) */}
+           {/* 1. Furusato */}
            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden group">
               <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-125 transition duration-700"></div>
               <div className="relative z-10">
@@ -449,38 +467,17 @@ export default function MoneyMartFinal() {
             </div>
             
             <form onSubmit={handleAdd} className="space-y-4">
-{/* 1. 자산(주식/펀드) 입력 폼 */}
                {modalType === 'asset' && (
                  <>
-                   {/* 종목명 */}
                    <div>
-                     <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">銘柄名 </label>
-                     <input required name="name" type="text" placeholder="例: Apple, 全世界株式..." className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                     <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">銘柄名</label>
+                     <input required name="name" type="text" placeholder="例: Apple" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
                    </div>
-
-                   {/* 단가 입력 (매수/현재) */}
                    <div className="grid grid-cols-2 gap-3">
-                     <div>
-                       <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">平均取得単価 </label>
-                       <input required name="buyPrice" type="number" placeholder="¥ 購入単価" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
-                     </div>
-                     <div>
-                       <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">現在単価 </label>
-                       <input required name="currentPrice" type="number" placeholder="¥ 現在値" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
-                     </div>
+                     <div><label className="block text-xs font-bold text-slate-500 mb-1 ml-1">平均単価</label><input required name="buyPrice" type="number" placeholder="¥" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/></div>
+                     <div><label className="block text-xs font-bold text-slate-500 mb-1 ml-1">現在単価</label><input required name="currentPrice" type="number" placeholder="¥" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/></div>
                    </div>
-
-                   {/* 수량 입력 (핵심!) */}
-                   <div>
-                     <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">保有数量 </label>
-                     <div className="relative">
-                        <input required name="qty" type="number" placeholder="株数 または 口数" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
-                        <span className="absolute right-4 top-4 text-slate-400 text-sm font-bold">株・口</span>
-                     </div>
-                     <p className="text-[10px] text-slate-400 mt-1 ml-1">
-                       ※ 投資信託の場合は、1口あたりの価格ではなく、保有している口数を入力してください。
-                     </p>
-                   </div>
+                   <div><label className="block text-xs font-bold text-slate-500 mb-1 ml-1">数量</label><input required name="qty" type="number" placeholder="株・口" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/></div>
                  </>
                )}
 
@@ -490,19 +487,18 @@ export default function MoneyMartFinal() {
 
                {modalType === 'point' && (
                  <>
-                   <input required name="name" type="text" placeholder="ポイント名 (例: Rakuten)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="name" type="text" placeholder="ポイント名" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
                    <input required name="val" type="number" placeholder="ポイント数" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
                  </>
                )}
 
-               {/* ★★★ [NEW] 목표/만기 입력 폼 ★★★ */}
                {modalType === 'saving' && (
                  <>
-                   <input required name="name" type="text" placeholder="目標名 (例: 旅行資金)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
-                   <input required name="bank" type="text" placeholder="金融機関 (例: 三菱UFJ)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
-                   <input required name="target" type="number" placeholder="目標金額 (¥)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="name" type="text" placeholder="目標名" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="bank" type="text" placeholder="金融機関" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="target" type="number" placeholder="目標額 (¥)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
                    <div className="grid grid-cols-2 gap-3">
-                     <input required name="current" type="number" placeholder="現在額 (¥)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                     <input required name="current" type="number" placeholder="現在額" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
                      <input required name="date" type="date" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
                    </div>
                  </>

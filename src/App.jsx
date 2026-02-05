@@ -19,6 +19,7 @@ import AdminPage from './pages/AdminPage';
 import Payment from './pages/Payment';
 // ★ LoanPage 임포트 추가
 import LoanPage from './pages/LoanPage';
+import ProductPage from './pages/ProductPage';
 
 // 약관 텍스트 (생략 가능하나 에러 방지를 위해 포함)
 const TERMS_TEXT = `
@@ -160,7 +161,7 @@ const App = () => {
           <Route path="/market" element={<MarketPage />} />
           
           {/* ★ 핵심: 대출 페이지 라우트 추가 */}
-          <Route path="/loan" element={<LoanPage />} />
+          <Route path="/products" element={<ProductPage />} />
           
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/learn" element={<LearningPage user={user} />} />
