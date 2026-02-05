@@ -1,409 +1,534 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid 
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip 
 } from 'recharts';
 import { 
-  Wallet, Plus, Check, Edit2, Trash2, Clock, 
-  PieChart as PieIcon, Utensils, Calculator, Save, TrendingUp, DollarSign, Crown, Target // Target 아이콘 추가
+  Wallet, Plus, CreditCard, Bell, RefreshCw, Zap, 
+  TrendingUp, ShieldCheck, Trash2, X, ChevronRight, CheckCircle, Gift, Coins, Calendar 
 } from 'lucide-react';
-// ▼▼▼ Supabase 연결 ▼▼▼
-import { supabase } from '../lib/supabase';
 
-// --- 1. 차트 색상 ---
-const COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6'];
+// --- [Dummy Data] 초기 데이터 세팅 ---
+const INITIAL_ASSETS = [
+  { id: 1, name: '米国株 (Tesla)', buyPrice: 20000, currentPrice: 24800, qty: 10, color: '#EF4444' },
+  { id: 2, name: '全世界株式', buyPrice: 15000, currentPrice: 14500, qty: 20, color: '#3B82F6' },
+];
 
-// --- 2. TradingView 시장 위젯 ---
-const MarketWidget = () => {
-  const container = useRef();
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      "colorTheme": "light", "dateRange": "12M", "showChart": true, "locale": "ja", "largeChartUrl": "", "isTransparent": true, "showSymbolLogo": true, "showFloatingTooltip": false, "width": "100%", "height": "100%", 
-      "tabs": [{ "title": "指数 & 為替", "symbols": [{ "s": "FOREXCOM:SPXUSD", "d": "S&P 500" }, { "s": "INDEX:NKY", "d": "Nikkei 225" }, { "s": "FX:USDJPY", "d": "USD/JPY" }] }]
-    });
-    if (container.current) { container.current.innerHTML = ''; container.current.appendChild(script); }
-  }, []);
-  return <div className="tradingview-widget-container h-full min-h-[300px]" ref={container}></div>;
-};
+const INITIAL_NOTIFICATIONS = [
+  { id: 1, type: 'alert', msg: 'Netflixの決済日が近づいています (明日)', time: '1時間前', read: false },
+  { id: 2, type: 'info', msg: '米国株が前日比 +5% 上昇しました', time: '3時間前', read: false },
+  { id: 3, type: 'success', msg: '旅行資金の積立が完了しました', time: '昨日', read: true },
+];
 
-// --- 3. 시뮬레이터 팝업 ---
-const SimulatorModal = ({ onClose }) => {
-  const [initial, setInitial] = useState(100);
-  const [monthly, setMonthly] = useState(5);
-  const [years, setYears] = useState(20);
-  const [rate, setRate] = useState(5);
-  const [result, setResult] = useState(null);
+const INITIAL_CARDS = [
+  { id: 1, name: 'Main Card', type: 'VISA', date: '毎月15日', dday: 3, color: 'from-slate-700 to-slate-900' },
+  { id: 2, name: 'Shopping', type: 'AMEX', date: '毎月25日', dday: 13, color: 'from-orange-400 to-pink-500' },
+];
 
-  const calculate = () => {
-    let total = initial * 10000;
-    let invested = initial * 10000;
-    const months = years * 12;
-    const monthlyRate = rate / 100 / 12;
-    for (let i = 0; i < months; i++) {
-      total = (total + monthly * 10000) * (1 + monthlyRate);
-      invested += monthly * 10000;
-    }
-    setResult({ total: Math.round(total), invested, profit: Math.round(total - invested) });
-  };
+const INITIAL_SUBS = [
+  { id: 1, name: 'Netflix', price: 1490, date: '12日', icon: 'N' },
+  { id: 2, name: 'YouTube Prem', price: 1280, date: '15日', icon: 'Y' },
+];
 
-  return (
-    <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg p-8 shadow-2xl relative transition-colors">
-        <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 dark:hover:text-white"><X size={24}/></button>
-        <div className="text-center mb-8"><h2 className="text-2xl font-black text-slate-900 dark:text-white">資産形成シミュレーター</h2></div>
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div><label className="text-xs font-bold text-slate-500 block mb-1">初期投資 (万円)</label><input type="number" value={initial} onChange={e=>setInitial(Number(e.target.value))} className="w-full bg-slate-50 border p-3 rounded-xl font-bold"/></div>
-          <div><label className="text-xs font-bold text-slate-500 block mb-1">毎月の積立 (万円)</label><input type="number" value={monthly} onChange={e=>setMonthly(Number(e.target.value))} className="w-full bg-slate-50 border p-3 rounded-xl font-bold"/></div>
-          <div><label className="text-xs font-bold text-slate-500 block mb-1">期間 (年)</label><input type="number" value={years} onChange={e=>setYears(Number(e.target.value))} className="w-full bg-slate-50 border p-3 rounded-xl font-bold"/></div>
-          <div><label className="text-xs font-bold text-slate-500 block mb-1">想定年利 (%)</label><input type="number" value={rate} onChange={e=>setRate(Number(e.target.value))} className="w-full bg-slate-50 border p-3 rounded-xl font-bold"/></div>
-        </div>
-        {result ? (<div className="bg-slate-900 text-white rounded-2xl p-6 text-center"><h3 className="text-4xl font-black mb-4">¥{(result.total / 10000).toFixed(0)}<span className="text-xl">万円</span></h3></div>) : (<button onClick={calculate} className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl">計算する</button>)}
-      </div>
-    </div>
-  );
-};
+const INITIAL_SAVINGS = [
+  { id: 1, name: '旅行資金', bank: '新生銀行', target: 300000, current: 240000, date: '2026.04.20' },
+];
 
-// --- 4. 메인 마이페이지 ---
-const MyPage = ({ user }) => {
-  // --- Data State ---
-  const [portfolioItems, setPortfolioItems] = useState([]);
-  const [expiryItems, setExpiryItems] = useState([]);
-  const [expenses, setExpenses] = useState([]);
+const INITIAL_POINTS = [
+  { id: 1, name: 'Rakuten', val: 5400, color: 'bg-blue-600', icon: 'R' },
+  { id: 2, name: 'V-Point', val: 2100, color: 'bg-yellow-500', icon: 'V' },
+];
+
+const INITIAL_FURUSATO = { limit: 70000, donated: 45000 };
+
+export default function MoneyMartFinal() {
+  // --- [State] 상태 관리 ---
+  const [assets, setAssets] = useState(INITIAL_ASSETS);
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [cards, setCards] = useState(INITIAL_CARDS);
+  const [subs, setSubs] = useState(INITIAL_SUBS);
+  const [savings, setSavings] = useState(INITIAL_SAVINGS);
+  const [points, setPoints] = useState(INITIAL_POINTS);
+  const [furusato, setFurusato] = useState(INITIAL_FURUSATO);
   
-  const [points, setPoints] = useState(0); 
-  const [monthlyTarget, setMonthlyTarget] = useState(100000);
+  // 지출 관리
+  const [budget, setBudget] = useState(100000);
+  const [spent, setSpent] = useState(65000);
 
-  // --- UI State ---
-  const [isSimModalOpen, setIsSimModalOpen] = useState(false); 
-  const [editingPoint, setEditingPoint] = useState(false);
-  const [tempPoint, setTempPoint] = useState(0);
+  // UI 상태
+  const [isNotiOpen, setIsNotiOpen] = useState(false);
+  const [modalType, setModalType] = useState(null);
 
-  // --- Modal & Form State ---
-  const [isAddPortModalOpen, setIsAddPortModalOpen] = useState(false);
-  const [isAddExpiryModalOpen, setIsAddExpiryModalOpen] = useState(false);
-  const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
+  // --- [Logic] 계산 로직 ---
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const totalPoint = points.reduce((acc, cur) => acc + cur.val, 0);
 
-  const [assetForm, setAssetForm] = useState({ name: '', buyPrice: '', currentPrice: '', amount: '', date: '', regionType: 'global' });
-  const [expiryForm, setExpiryForm] = useState({ name: '', type: 'point', date: '', memo: '' });
-  const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: 'food', date: new Date().toISOString().split('T')[0] });
-
-  // ▼▼▼ 데이터 불러오기 ▼▼▼
-  useEffect(() => {
-    const fetchAllData = async () => {
-      if (!user) return;
-      
-      const { data: assets } = await supabase.from('assets').select('*').eq('user_id', user.id);
-      if (assets) {
-        setPortfolioItems(assets.map(item => ({
-          id: item.id, name: item.name, buyPrice: item.price, currentPrice: item.price, amount: item.amount, date: item.created_at?.split('T')[0], type: item.type, regionType: 'global'
-        })));
-      }
-      const { data: expData } = await supabase.from('expenses').select('*').eq('user_id', user.id).order('date', { ascending: false });
-      if (expData) setExpenses(expData);
-      const { data: expiryData } = await supabase.from('expiries').select('*').eq('user_id', user.id).order('date', { ascending: true });
-      if (expiryData) setExpiryItems(expiryData);
-    };
-    fetchAllData();
-  }, [user]);
-
-  // --- 계산 로직 ---
-  const totalInvestment = portfolioItems.reduce((acc, item) => acc + Number(item.amount), 0);
-  const totalCurrentValue = portfolioItems.reduce((acc, item) => {
-    const buyPrice = Number(item.buyPrice) || 1; 
-    const quantity = Number(item.amount) / buyPrice;
-    return acc + (quantity * Number(item.currentPrice));
-  }, 0);
-  const totalProfit = totalCurrentValue - totalInvestment;
-
-  const chartData = useMemo(() => {
-    const data = {};
-    portfolioItems.forEach(item => {
-      const buyPrice = Number(item.buyPrice) || 1;
-      const quantity = Number(item.amount) / buyPrice;
-      const val = quantity * Number(item.currentPrice);
-      if(data[item.regionType]) data[item.regionType] += val;
-      else data[item.regionType] = val;
+  const { totalAsset, totalProfit, profitRate, chartData } = useMemo(() => {
+    let currentTotal = 0;
+    let investTotal = 0;
+    const data = assets.map(item => {
+      const itemVal = item.currentPrice * item.qty;
+      currentTotal += itemVal;
+      investTotal += item.buyPrice * item.qty;
+      return { name: item.name, value: itemVal, color: item.color };
     });
-    const mapping = { 'global': { label: '全世界', color: '#3B82F6' }, 'north-america': { label: '米国', color: '#EF4444' }, 'japan': { label: '国内', color: '#F59E0B' }, 'emerging': { label: '新興国', color: '#10B981' }, 'other': { label: 'その他', color: '#6B7280' } };
-    if (Object.keys(data).length === 0) return [{ name: 'データなし', value: 1, fill: '#CBD5E1' }];
-    return Object.keys(data).map(key => ({ name: mapping[key]?.label || key, value: data[key], fill: mapping[key]?.color || '#CBD5E1' }));
-  }, [portfolioItems]);
+    const profit = currentTotal - investTotal;
+    const rate = investTotal > 0 ? (profit / investTotal) * 100 : 0;
+    return { totalAsset: currentTotal, totalProfit: profit, profitRate: rate.toFixed(1), chartData: data };
+  }, [assets]);
 
-  const trendData = [
-    { month: '8月', value: 0 }, { month: '9月', value: 0 }, { month: '10月', value: 0 }, { month: '11月', value: 0 }, { month: '12月', value: totalCurrentValue * 0.9 }, { month: '1月', value: totalCurrentValue }, 
-  ];
-
-  const monthlyExpense = expenses.reduce((acc, item) => acc + Number(item.amount), 0);
-  const progressPercent = Math.min((monthlyExpense / monthlyTarget) * 100, 100);
-
-  const checkAlert = (targetDate) => {
-    const today = new Date();
-    const target = new Date(targetDate);
-    const diffTime = target - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 && diffDays <= 90;
+  // --- [Handlers] 액션 핸들러 ---
+  const handleReadNoti = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setIsNotiOpen(false);
   };
 
-  const handleEditTarget = () => {
-    const newTarget = prompt("목표 지출 금액을 입력하세요 (엔)", monthlyTarget);
-    if (newTarget && !isNaN(newTarget)) setMonthlyTarget(Number(newTarget));
+  const handleDelete = (type, id) => {
+    if (!window.confirm("本当に削除しますか？")) return;
+    if (type === 'asset') setAssets(prev => prev.filter(i => i.id !== id));
+    if (type === 'card') setCards(prev => prev.filter(i => i.id !== id));
+    if (type === 'sub') setSubs(prev => prev.filter(i => i.id !== id));
+    if (type === 'saving') setSavings(prev => prev.filter(i => i.id !== id));
+    if (type === 'point') setPoints(prev => prev.filter(i => i.id !== id));
   };
 
-  const openModal = (type, item = null) => {
-    setEditingItem(item);
-    if (type === 'portfolio') { setAssetForm(item ? {...item} : { name: '', buyPrice: '', currentPrice: '', amount: '', date: '', regionType: 'global' }); setIsAddPortModalOpen(true); }
-    else if (type === 'expiry') { setExpiryForm(item ? {...item} : { name: '', type: 'point', date: '', memo: '' }); setIsAddExpiryModalOpen(true); }
-    else if (type === 'expense') { setExpenseForm(item ? {...item} : { title: '', amount: '', category: 'food', date: new Date().toISOString().split('T')[0] }); setIsAddExpenseModalOpen(true); }
-  };
-
-  const deleteItem = async (type, id) => {
-    if(!confirm("本当に削除しますか？")) return;
-    let tableName = '';
-    if (type === 'portfolio') tableName = 'assets';
-    if (type === 'expense') tableName = 'expenses';
-    if (type === 'expiry') tableName = 'expiries';
-    if (tableName) {
-      const { error } = await supabase.from(tableName).delete().eq('id', id);
-      if (error) alert("削除失敗: " + error.message);
-      else {
-        if(type==='portfolio') setPortfolioItems(prev => prev.filter(item => item.id !== id));
-        if(type==='expense') setExpenses(prev => prev.filter(item => item.id !== id));
-        if(type==='expiry') setExpiryItems(prev => prev.filter(item => item.id !== id));
-      }
+  const handleAdd = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    
+    if (modalType === 'asset') {
+      const newItem = {
+        id: Date.now(),
+        name: fd.get('name'),
+        buyPrice: Number(fd.get('buyPrice')),
+        currentPrice: Number(fd.get('currentPrice')),
+        qty: Number(fd.get('qty')),
+        color: `#${Math.floor(Math.random()*16777215).toString(16)}`
+      };
+      setAssets([...assets, newItem]);
     }
+    if (modalType === 'expense') {
+      setSpent(prev => prev + Number(fd.get('amount')));
+    }
+    if (modalType === 'furusato') {
+      setFurusato(prev => ({ ...prev, donated: prev.donated + Number(fd.get('amount')) }));
+    }
+    if (modalType === 'point') {
+      setPoints([...points, { id: Date.now(), name: fd.get('name'), val: Number(fd.get('val')), color: 'bg-purple-500', icon: 'P' }]);
+    }
+    if (modalType === 'saving') {
+      const dateStr = fd.get('date').replace(/-/g, '.'); // YYYY-MM-DD -> YYYY.MM.DD 변환
+      setSavings([...savings, {
+        id: Date.now(),
+        name: fd.get('name'),
+        bank: fd.get('bank'),
+        target: Number(fd.get('target')),
+        current: Number(fd.get('current')),
+        date: dateStr
+      }]);
+    }
+    if (modalType === 'card') {
+      setCards([...cards, {
+        id: Date.now(),
+        name: fd.get('name'),
+        type: 'CARD',
+        date: `毎月${fd.get('date')}日`,
+        dday: 30, // 임시값
+        color: 'from-indigo-500 to-purple-600'
+      }]);
+    }
+    if (modalType === 'sub') {
+      setSubs([...subs, {
+        id: Date.now(),
+        name: fd.get('name'),
+        price: Number(fd.get('price')),
+        date: `${fd.get('date')}日`,
+        icon: fd.get('name').charAt(0).toUpperCase()
+      }]);
+    }
+    
+    setModalType(null);
   };
-
-  const handleSavePortfolio = async () => {
-    if (!user) return;
-    const newAssetData = { user_id: user.id, name: assetForm.name, price: Number(assetForm.currentPrice), amount: Number(assetForm.amount), type: 'stock' };
-    const { data, error } = await supabase.from('assets').insert([newAssetData]).select();
-    if (!error && data) {
-      const savedItem = data[0];
-      setPortfolioItems(prev => [...prev, { id: savedItem.id, name: savedItem.name, buyPrice: savedItem.price, currentPrice: savedItem.price, amount: savedItem.amount, date: savedItem.created_at.split('T')[0], type: savedItem.type, regionType: 'global' }]);
-      setIsAddPortModalOpen(false);
-    } else { alert("Error: " + error.message); }
-  };
-
-  const handleSaveExpiry = async () => {
-    if (!user) return;
-    const newData = { user_id: user.id, ...expiryForm };
-    const { data, error } = await supabase.from('expiries').insert([newData]).select();
-    if (!error && data) { setExpiryItems(prev => [...prev, data[0]]); setIsAddExpiryModalOpen(false); } else { alert("Error: " + error.message); }
-  };
-
-  const handleSaveExpense = async () => {
-    if (!user) return;
-    const newData = { user_id: user.id, title: expenseForm.title, amount: Number(expenseForm.amount), category: expenseForm.category, date: expenseForm.date };
-    const { data, error } = await supabase.from('expenses').insert([newData]).select();
-    if (!error && data) { setExpenses(prev => [data[0], ...prev]); setIsAddExpenseModalOpen(false); } else { alert("Error: " + error.message); }
-  };
-
-  const isPremium = user?.plan === 'premium';
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pb-40 animate-fadeIn min-h-screen">
+    <div className="max-w-7xl mx-auto px-6 py-12 pb-40 font-sans min-h-screen text-slate-800 dark:text-white">
       
-      {/* 1. 프로필 섹션 (프리미엄이면 황금색, 아니면 주황색) */}
-      <div className={`flex flex-col md:flex-row items-center gap-8 mb-8 p-8 rounded-[2.5rem] shadow-xl transition-colors relative overflow-hidden ${isPremium ? 'bg-slate-900 text-white border border-yellow-500/30' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700'}`}>
-        
-        {/* 프리미엄일 때만 나오는 황금 배경 효과 */}
-        {isPremium && <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16"></div>}
-
-        <div className={`w-24 h-24 rounded-full font-black text-3xl flex items-center justify-center shadow-lg z-10 ${isPremium ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white ring-4 ring-yellow-500/20' : 'bg-slate-900 dark:bg-black text-white'}`}>
-          {user?.avatar || 'G'}
+      {/* 1. Header Area */}
+      <div className="flex justify-between items-start mb-10 relative">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">MoneyMart</h1>
+          <p className="text-lg text-slate-500 font-medium">Justin様の資産ポートフォリオ</p>
         </div>
         
-        <div className="text-center md:text-left z-10">
-          <h2 className={`text-3xl font-black mb-1 ${isPremium ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{user?.name || 'ゲスト'}</h2>
-          
-          <div className="flex flex-wrap gap-2 justify-center md:justify-start items-center mb-2">
-            {/* ★★★ 등급 표시 배지 ★★★ */}
-            <span className={`text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 ${
-              isPremium 
-                ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg' 
-                : 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
-            }`}>
-              {isPremium ? <Crown size={12} fill="currentColor"/> : null}
-              {isPremium ? 'Premium Plan' : 'Free Plan'}
-            </span>
-
-            {/* ★★★ 리스크 프로필 표시 (여기 추가됨!) ★★★ */}
-            {user?.riskProfile && (
-              <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-slate-200 dark:border-slate-600">
-                <Target size={12} className="text-blue-500"/>
-                {user.riskProfile}
-              </span>
+        {/* Notification Bell */}
+        <div className="relative">
+          <button 
+            onClick={() => setIsNotiOpen(!isNotiOpen)}
+            className="p-4 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-100 dark:border-slate-700 hover:scale-105 transition active:scale-95"
+          >
+            <Bell size={28} className="text-slate-600 dark:text-slate-300"/>
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-3 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
             )}
+          </button>
 
-            <button onClick={()=>setIsSimModalOpen(true)} className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 transition ml-1">
-               <Calculator size={10}/> Simulator
-            </button>
+          {/* Notification Panel */}
+          {isNotiOpen && (
+            <div className="absolute right-0 mt-4 w-96 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-fadeIn origin-top-right">
+              <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                <h3 className="font-bold text-lg">お知らせ ({unreadCount})</h3>
+                <button onClick={handleReadNoti} className="text-sm text-blue-500 font-bold hover:underline">すべて既読にする</button>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                {notifications.length > 0 ? notifications.map(noti => (
+                  <div key={noti.id} className={`p-4 border-b border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition flex gap-3 ${!noti.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
+                    <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${!noti.read ? 'bg-red-500' : 'bg-slate-300'}`}></div>
+                    <div>
+                      <p className={`text-sm ${!noti.read ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-500'}`}>{noti.msg}</p>
+                      <p className="text-xs text-slate-400 mt-1">{noti.time}</p>
+                    </div>
+                  </div>
+                )) : <div className="p-8 text-center text-slate-400 text-sm">新しいお知らせはありません</div>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid xl:grid-cols-3 gap-8">
+        
+        {/* [Left Column] Main Dashboard (Assets & MoneyMon) */}
+        <div className="xl:col-span-2 space-y-8">
+          
+          {/* A. MoneyMon (Assistant) */}
+          <div className="bg-gradient-to-r from-indigo-700 to-purple-700 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden group">
+             <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/10 rounded-full blur-3xl group-hover:scale-110 transition duration-1000"></div>
+             <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
+               <div className="bg-white/20 p-5 rounded-full text-5xl shadow-inner backdrop-blur-md animate-[bounce_3s_infinite]">🦅</div>
+               <div className="flex-1 w-full text-center md:text-left">
+                 <div className="inline-block bg-indigo-900/30 px-4 py-1 rounded-full text-sm font-bold text-indigo-200 mb-3 border border-indigo-400/30">MoneyMart AI アシスタント</div>
+                 <h2 className="text-2xl md:text-3xl font-bold leading-tight mb-2">Justin様、今月の予算管理は順調です！</h2>
+                 <p className="text-indigo-100 text-lg mb-6 opacity-90">
+                   現在 <span className="font-bold text-white text-xl">{Math.round((spent/budget)*100)}%</span> 消費中。昨日に比べて支出ペースが落ち着いています。
+                 </p>
+                 <div className="w-full bg-black/20 h-4 rounded-full overflow-hidden mb-3 ring-1 ring-white/10">
+                   <div style={{ width: `${Math.min((spent/budget)*100, 100)}%` }} className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)] transition-all duration-1000"></div>
+                 </div>
+                 <div className="flex justify-between text-sm font-medium opacity-90 mb-4">
+                   <span>支出: ¥{spent.toLocaleString()}</span>
+                   <span>残り予算: ¥{(budget - spent).toLocaleString()}</span>
+                 </div>
+                 <button onClick={() => setModalType('expense')} className="bg-white text-indigo-900 font-bold py-3 px-6 rounded-xl hover:bg-indigo-50 transition shadow-lg">+ 今日の支出を記録</button>
+               </div>
+             </div>
+          </div>
+
+          {/* B. Assets Portfolio (Big Numbers) */}
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 md:p-10 shadow-lg border border-slate-100 dark:border-slate-700">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-2xl"><TrendingUp size={28}/></div>
+                  <h3 className="text-xl font-bold text-slate-500 dark:text-slate-400">運用総資産</h3>
+                </div>
+                <p className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tight">¥ {totalAsset.toLocaleString()}</p>
+                <p className={`text-lg font-bold mt-2 flex items-center gap-2 ${totalProfit >= 0 ? "text-red-500" : "text-blue-500"}`}>
+                  {totalProfit >= 0 ? '▲' : '▼'} ¥{Math.abs(totalProfit).toLocaleString()} ({profitRate}%)
+                </p>
+              </div>
+              <button onClick={() => setModalType('asset')} className="w-full md:w-auto bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-4 rounded-2xl text-lg font-bold hover:shadow-xl hover:-translate-y-1 transition">+ 資産入力</button>
+            </div>
+            
+            <div className="flex flex-col lg:flex-row items-center gap-10">
+              <div className="w-64 h-64 flex-shrink-0 relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={chartData} innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
+                      {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="none"/>)}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}/>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-sm font-bold text-slate-400">Total</span>
+                  <span className="text-xl font-black text-slate-800 dark:text-white">100%</span>
+                </div>
+              </div>
+              
+              <div className="flex-1 w-full space-y-4">
+                {assets.map((item) => (
+                  <div key={item.id} className="flex justify-between items-center p-5 bg-slate-50 dark:bg-slate-700/30 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group cursor-pointer border border-transparent hover:border-slate-200">
+                    <div className="flex items-center gap-4">
+                      <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: item.color }}></div>
+                      <div>
+                        <span className="text-lg font-bold text-slate-800 dark:text-white block">{item.name}</span>
+                        <span className="text-sm text-slate-500">{item.qty}株保有</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex items-center gap-6">
+                      <div>
+                        <span className="block text-xl font-bold text-slate-900 dark:text-white">¥{(item.currentPrice * item.qty).toLocaleString()}</span>
+                        <span className={`text-sm font-bold ${item.currentPrice >= item.buyPrice ? 'text-red-500' : 'text-blue-500'}`}>
+                          {((item.currentPrice - item.buyPrice) * item.qty).toLocaleString()}
+                        </span>
+                      </div>
+                      <button onClick={() => handleDelete('asset', item.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition opacity-0 group-hover:opacity-100"><Trash2 size={20}/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* C. Savings & Maturity (★★★ ADDED: +Button ★★★) */}
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><ShieldCheck size={24} className="text-purple-500"/> 目標・満期管理</h3>
+                {/* ★ 추가 버튼 생성 ★ */}
+                <button onClick={() => setModalType('saving')} className="text-sm font-bold text-purple-600 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition">+ 追加</button>
+             </div>
+             <div className="space-y-4">
+                {savings.map(sav => {
+                  const rate = Math.round((sav.current / sav.target) * 100);
+                  return (
+                    <div key={sav.id} className="relative overflow-hidden bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-6 border border-purple-100 dark:border-purple-800 group">
+                       <div className="flex justify-between items-start z-10 relative mb-4">
+                          <div>
+                             <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-bold bg-white dark:bg-slate-800 px-2 py-0.5 rounded text-purple-600">積立</span>
+                                <span className="font-bold text-lg text-slate-800 dark:text-white">{sav.name}</span>
+                             </div>
+                             <p className="text-sm text-slate-500">{sav.bank} • {sav.date}</p>
+                          </div>
+                          <button onClick={() => handleDelete('saving', sav.id)} className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={20}/></button>
+                       </div>
+                       <div>
+                          <div className="flex justify-between text-xs text-slate-500 mb-2">
+                             <span>現在 ¥{sav.current.toLocaleString()}</span>
+                             <span>目標 ¥{sav.target.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full bg-white dark:bg-slate-700 h-3 rounded-full overflow-hidden">
+                             <div className="h-full bg-purple-500 transition-all duration-1000" style={{width: `${rate}%`}}></div>
+                          </div>
+                       </div>
+                    </div>
+                  )
+                })}
+             </div>
           </div>
         </div>
-        
-        <div className="flex-1 md:text-right w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-700 flex justify-around md:justify-end gap-8 z-10">
-           <div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Assets</p><p className={`text-3xl font-black ${isPremium ? 'text-white' : 'text-slate-900 dark:text-white'}`}>¥{Math.round(totalCurrentValue).toLocaleString()}</p></div>
-           <div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Profit</p><p className={`text-3xl font-black ${totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{totalProfit >= 0 ? '+' : ''}¥{Math.round(totalProfit).toLocaleString()}</p></div>
-        </div>
-      </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* 2. 자산 섹션 (좌측) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* 도넛 차트 */}
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col md:flex-row items-center gap-8 transition-colors">
-            <div className="w-48 h-48 relative flex-shrink-0">
-               <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
-                   <Pie data={chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                     {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
-                   </Pie>
-                   <Tooltip formatter={(value) => `¥${value.toLocaleString()}`} contentStyle={{backgroundColor:'#1e293b', border:'none', borderRadius:'10px', color:'white'}} />
-                 </PieChart>
-               </ResponsiveContainer>
-            </div>
-            <div className="flex-1 w-full">
-               <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><PieIcon size={18} className="text-orange-500"/> 資産配分 (地域別)</h3>
-               <div className="grid grid-cols-2 gap-3">
-                 {chartData.map((d, i) => (
-                   <div key={i} className="flex items-center justify-between text-sm">
-                     <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{backgroundColor: d.fill}}></span><span className="text-slate-600 dark:text-slate-300 font-medium">{d.name}</span></div>
-                     <span className="font-bold text-slate-900 dark:text-white">¥{Math.round(d.value).toLocaleString()}</span>
+        {/* [Right Column] Utilities & Japanese Features */}
+        <div className="xl:col-span-1 space-y-8">
+           
+           {/* 1. Furusato Nozei (Hometown Tax) */}
+           <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden group">
+              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-125 transition duration-700"></div>
+              <div className="relative z-10">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm">節税対策</span>
+                      <h3 className="text-xl font-bold">ふるさと納税</h3>
+                    </div>
+                    <p className="text-emerald-100 text-sm">控除限度額まで、あと少しです！</p>
+                  </div>
+                  <div className="bg-white/20 p-3 rounded-full text-2xl shadow-sm"><Gift /></div>
+                </div>
+                <div className="mb-4">
+                  <div className="flex justify-between items-end mb-2">
+                    <span className="text-3xl font-black">あと ¥{(furusato.limit - furusato.donated).toLocaleString()}</span>
+                    <span className="text-sm font-medium opacity-80">限度額 ¥{furusato.limit.toLocaleString()}</span>
+                  </div>
+                  <div className="w-full bg-black/20 h-5 rounded-full overflow-hidden border border-white/10">
+                    <div style={{ width: `${(furusato.donated/furusato.limit)*100}%` }} className="h-full bg-gradient-to-r from-yellow-300 to-orange-400 shadow-[0_0_15px_rgba(253,224,71,0.5)] relative"></div>
+                  </div>
+                </div>
+                <button onClick={() => setModalType('furusato')} className="w-full bg-white text-emerald-800 font-bold py-3 rounded-xl hover:bg-emerald-50 transition shadow-lg">+ 寄付履歴を追加</button>
+              </div>
+           </div>
+
+           {/* 2. Point Assets */}
+           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><Coins size={24} className="text-yellow-500"/> ポイ活資産</h3>
+                <span className="text-sm text-slate-400">Total</span>
+              </div>
+              <div className="text-center mb-6">
+                <p className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">¥ {totalPoint.toLocaleString()}<span className="text-lg text-slate-400 font-medium ml-1">相当</span></p>
+              </div>
+              <div className="space-y-3">
+                {points.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl group cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full ${p.color} text-white flex items-center justify-center font-black shadow-md`}>{p.icon}</div>
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{p.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                       <span className="font-bold text-slate-900 dark:text-white">{p.val.toLocaleString()} P</span>
+                       <button onClick={() => handleDelete('point', p.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={16}/></button>
+                    </div>
+                  </div>
+                ))}
+                <button onClick={() => setModalType('point')} className="w-full py-3 mt-2 border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">+ ポイント追加</button>
+              </div>
+           </div>
+
+           {/* 3. Digital Wallet */}
+           <div>
+              <div className="flex justify-between items-center mb-6 px-2">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><Wallet size={24} className="text-blue-500"/> デジタル財布</h3>
+                <button onClick={() => setModalType('card')} className="text-sm font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">+ 追加</button>
+              </div>
+              <div className="flex flex-col gap-4">
+                 {cards.map(card => (
+                   <div key={card.id} className={`w-full h-56 rounded-[2rem] bg-gradient-to-br ${card.color} p-8 text-white shadow-2xl relative transform hover:scale-[1.02] transition duration-300 cursor-pointer group`}>
+                      <div className="flex justify-between items-start">
+                        <span className="font-mono text-sm opacity-70 tracking-widest">{card.name}</span>
+                        <button onClick={() => handleDelete('card', card.id)} className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white"><X size={20}/></button>
+                      </div>
+                      <div className="w-12 h-9 bg-yellow-500/20 rounded-md border border-yellow-500/40 backdrop-blur-sm mt-4 flex items-center justify-center">
+                          <div className="w-8 h-5 border border-yellow-500/30 rounded-[2px]"></div>
+                      </div>
+                      <div className="absolute bottom-8 left-8 right-8">
+                         <div className="flex justify-between items-end">
+                           <div>
+                              <p className="text-xs opacity-60 mb-1 font-bold">PAYMENT</p>
+                              <p className="text-xl font-bold flex items-center gap-2">{card.date} <span className="bg-red-500 text-xs px-2 py-0.5 rounded-md animate-pulse">あと{card.dday}日</span></p>
+                           </div>
+                           <CreditCard className="opacity-30" size={48}/>
+                         </div>
+                      </div>
                    </div>
                  ))}
-               </div>
-            </div>
-          </div>
-          
-          {/* 자산 리스트 */}
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm transition-colors">
-            <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-800 dark:text-white">保有資産一覧</h3><button onClick={()=>openModal('portfolio')} className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition">+ 追加</button></div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead><tr className="text-slate-400 border-b border-slate-50 dark:border-slate-700"><th className="pb-2 font-bold pl-2">銘柄</th><th className="pb-2 font-bold text-right">評価額</th><th className="pb-2 font-bold text-right pr-2">損益</th><th className="pb-2 font-bold text-right">操作</th></tr></thead>
-                  <tbody>
-                    {portfolioItems.length > 0 ? portfolioItems.map(item => {
-                      const qty = item.buyPrice > 0 ? Number(item.amount) / Number(item.buyPrice) : 0;
-                      const currentVal = qty * Number(item.currentPrice);
-                      const profit = currentVal - Number(item.amount);
-                      return (
-                        <tr key={item.id} className="border-b border-slate-50 dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
-                          <td className="py-3 pl-2"><div className="font-bold text-slate-700 dark:text-slate-200">{item.name}</div></td>
-                          <td className="py-3 text-right font-medium text-slate-900 dark:text-slate-200">¥{Math.round(currentVal).toLocaleString()}</td>
-                          <td className={`py-3 text-right pr-2 font-bold ${profit>=0?'text-green-500':'text-red-500'}`}>{profit>=0?'+':''}¥{Math.round(profit).toLocaleString()}</td>
-                          <td className="py-3 text-right">
-                             <button onClick={()=>openModal('portfolio', item)} className="p-1 text-slate-400 hover:text-blue-500"><Edit2 size={14}/></button>
-                             <button onClick={()=>deleteItem('portfolio', item.id)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
-                          </td>
-                        </tr>
-                      )
-                    }) : (
-                      <tr><td colSpan="4" className="py-4 text-center text-slate-400">データがありません。追加してください。</td></tr>
-                    )}
-                  </tbody>
-                </table>
-            </div>
-          </div>
-
-          {/* 자산 추이 그래프 */}
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm transition-colors">
-            <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><TrendingUp size={18} className="text-purple-500"/> 資産推移</h3></div>
-            <div className="h-64 w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                 <AreaChart data={trendData}>
-                   <defs><linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/><stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/></linearGradient></defs>
-                   <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12}} />
-                   <YAxis hide domain={['dataMin - 100000', 'dataMax + 100000']} />
-                   <CartesianGrid vertical={false} stroke="#f1f5f9" strokeOpacity={0.1} />
-                   <Tooltip contentStyle={{backgroundColor:'#1e293b', borderRadius:'12px', border:'none', color:'white'}} itemStyle={{color:'white'}} formatter={(value) => [`¥${value.toLocaleString()}`, "総資産"]}/>
-                   <Area type="monotone" dataKey="value" stroke="#8B5CF6" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
-                 </AreaChart>
-               </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. 우측 사이드바 */}
-        <div className="lg:col-span-1 space-y-6 flex flex-col h-full">
-          {/* A. 지출 카드 */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden flex-shrink-0">
-             <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl pointer-events-none"></div>
-             <div className="flex justify-between items-center mb-4"><h3 className="font-bold flex items-center gap-2"><Wallet size={18} className="text-green-400"/> 家計簿・支出</h3><button onClick={()=>openModal('expense')} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><Plus size={16}/></button></div>
-             <div className="mb-6">
-                 <div className="flex justify-between items-end mb-1"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Target</p><button onClick={handleEditTarget} className="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-white transition">¥{monthlyTarget.toLocaleString()} <Edit2 size={10}/></button></div>
-                 <div className="flex items-baseline gap-1 mb-2"><span className="text-3xl font-black text-white">¥{monthlyExpense.toLocaleString()}</span><span className="text-xs text-slate-400">/ ¥{monthlyTarget.toLocaleString()}</span></div>
-                 <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 bg-green-500`} style={{width: `${progressPercent}%`}}></div></div>
-             </div>
-             <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-               {expenses.length > 0 ? expenses.map(ex => (
-                 <div key={ex.id} className="flex items-center justify-between bg-white/5 p-2 rounded-lg border border-white/5 hover:bg-white/10 transition group">
-                   <div className="flex items-center gap-3"><div className="bg-slate-800 p-1.5 rounded-md text-slate-300"><Utensils size={14}/></div><div><p className="text-xs font-bold">{ex.title}</p><p className="text-[9px] text-slate-400">{ex.date}</p></div></div>
-                   <div className="text-right">
-                      <span className="font-bold text-xs block">-¥{Number(ex.amount).toLocaleString()}</span>
-                      <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={()=>deleteItem('expense', ex.id)} className="text-slate-400 hover:text-red-400"><Trash2 size={10}/></button></div>
-                   </div>
-                 </div>
-               )) : <div className="text-center text-xs text-slate-500 py-4">支出データなし</div>}
-             </div>
-          </div>
-
-          {/* B. 포인트 카드 */}
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group flex-shrink-0 transition-colors">
-              <div className="flex justify-between items-start mb-2">
-                 <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-500 rounded-lg"><DollarSign size={20} /></div>
-                 {editingPoint ? <div className="flex gap-1"><input type="number" value={tempPoint} onChange={e=>setTempPoint(Number(e.target.value))} className="w-20 border-b border-orange-500 text-right font-bold bg-transparent dark:text-white"/><button onClick={()=>{setPoints(tempPoint); setEditingPoint(false);}} className="text-green-500"><Check size={16}/></button></div> : <button onClick={()=>{setTempPoint(points); setEditingPoint(true);}} className="text-slate-300 hover:text-slate-600 dark:hover:text-white p-1"><Edit2 size={14}/></button>}
               </div>
-              <p className="text-slate-400 text-xs font-bold uppercase mb-1">保有ポイント</p>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white">{points.toLocaleString()} <span className="text-sm text-slate-400">P</span></h3>
-              <div className="absolute -bottom-6 -right-6 text-orange-500/10 transform rotate-12 group-hover:scale-110 transition"><DollarSign size={100}/></div>
-          </div>
+           </div>
 
-          {/* C. 위젯 */}
-          <div className="flex-1 bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden min-h-[300px] relative transition-colors">
-             <MarketWidget />
-          </div>
+           {/* 4. Subscriptions */}
+           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><RefreshCw size={24} className="text-green-500"/> 固定費・サブスク</h3>
+              </div>
+              <div className="space-y-4">
+                 {subs.map((sub) => (
+                   <div key={sub.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer group">
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-600 flex items-center justify-center font-bold text-lg text-slate-700 shadow-sm">{sub.icon}</div>
+                         <div>
+                            <p className="font-bold text-lg text-slate-800 dark:text-white">{sub.name}</p>
+                            <p className="text-sm text-slate-400">毎月 {sub.date}</p>
+                         </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <p className="font-bold text-lg text-slate-800 dark:text-white">¥{sub.price.toLocaleString()}</p>
+                         <button onClick={() => handleDelete('sub', sub.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={20}/></button>
+                      </div>
+                   </div>
+                 ))}
+                 <button onClick={() => setModalType('sub')} className="w-full py-4 mt-2 border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">+ 固定費を追加</button>
+              </div>
+           </div>
 
-          {/* D. 만기 관리 */}
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex-shrink-0 transition-colors">
-             <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Clock size={18} className="text-red-500"/> 期限管理</h3><button onClick={()=>openModal('expiry')} className="text-xs text-slate-400 font-bold hover:text-slate-600 dark:hover:text-white">+ 追加</button></div>
-             <div className="space-y-3">
-               {expiryItems.length > 0 ? expiryItems.map(item => {
-                 const isUrgent = checkAlert(item.date);
-                 return (
-                 <div key={item.id} className={`p-3 rounded-xl border flex justify-between items-center group transition-colors ${isUrgent ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900' : 'bg-slate-50 dark:bg-slate-700 border-slate-100 dark:border-slate-600'}`}>
-                   <div>
-                     <div className="flex items-center gap-2 mb-1"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${item.type==='point'?'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300':'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300'}`}>{item.type==='point'?'P':'保険'}</span><span className="text-xs font-bold text-slate-700 dark:text-slate-200">{item.name}</span></div>
-                     <p className="text-[10px] text-slate-400 dark:text-slate-400">{item.memo}</p>
-                   </div>
-                   <div className="text-right">
-                      <p className={`text-xs font-black ${isUrgent ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`}>{item.date}</p>
-                      <div className="flex gap-2 justify-end mt-1"><button onClick={()=>deleteItem('expiry', item.id)} className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={12}/></button></div>
-                   </div>
-                 </div>
-               )}) : <div className="text-center text-xs text-slate-500 py-4">データなし</div>}
-             </div>
-          </div>
         </div>
       </div>
-      
-      {/* Modals (생략 없이 유지) */}
-      {isSimModalOpen && <SimulatorModal onClose={() => setIsSimModalOpen(false)} />}
-      
-      {/* Portfolio Modal */}
-      {isAddPortModalOpen && <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl transition-colors"><h3 className="text-xl font-black mb-6 dark:text-white">{editingItem ? '資産を編集' : '資産を追加'}</h3><div className="space-y-4"><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">資産名</label><input type="text" value={assetForm.name} onChange={e=>setAssetForm({...assetForm, name:e.target.value})} className="w-full border p-3 rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold text-sm"/></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">地域</label><select value={assetForm.regionType} onChange={e=>setAssetForm({...assetForm, regionType:e.target.value})} className="w-full border p-3 rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold text-sm"><option value="global">全世界</option><option value="north-america">米国</option><option value="japan">日本</option><option value="emerging">新興国</option><option value="other">その他</option></select></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">購入単価</label><input type="number" value={assetForm.buyPrice} onChange={e=>setAssetForm({...assetForm, buyPrice:e.target.value})} className="w-full border p-3 rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold text-sm"/></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">現在単価</label><input type="number" value={assetForm.currentPrice} onChange={e=>setAssetForm({...assetForm, currentPrice:e.target.value})} className="w-full border p-3 rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold text-sm"/></div></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">投資総額</label><input type="number" value={assetForm.amount} onChange={e=>setAssetForm({...assetForm, amount:e.target.value})} className="w-full border p-3 rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold text-sm"/></div></div><div className="flex gap-3 mt-8"><button onClick={handleSavePortfolio} className="flex-1 bg-slate-900 hover:bg-black dark:bg-orange-500 dark:hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition">保存</button><button onClick={()=>setIsAddPortModalOpen(false)} className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-white font-bold py-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition">キャンセル</button></div></div></div>}
-      
-      {/* Expense Modal */}
-      {isAddExpenseModalOpen && <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl transition-colors"><h3 className="text-lg font-black mb-4 dark:text-white">{editingItem ? '支出を編集' : '支出を記録'}</h3><div className="space-y-3"><input type="text" placeholder="項目名" value={expenseForm.title} onChange={e=>setExpenseForm({...expenseForm, title:e.target.value})} className="w-full border p-3 rounded-xl text-sm bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"/><input type="number" placeholder="金額" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount:e.target.value})} className="w-full border p-3 rounded-xl text-sm bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"/><div className="flex gap-2 overflow-x-auto pb-2">{['food','transport','shopping','utility'].map(cat => (<button key={cat} onClick={()=>setExpenseForm({...expenseForm, category: cat})} className={`p-2 rounded-lg border ${expenseForm.category===cat?'bg-slate-900 text-white border-slate-900 dark:bg-orange-500 dark:border-orange-500':'bg-white dark:bg-slate-700 text-slate-400 dark:border-slate-600'}`}><Utensils size={14}/></button>))}</div><input type="date" value={expenseForm.date} onChange={e=>setExpenseForm({...expenseForm, date:e.target.value})} className="w-full border p-3 rounded-xl text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white"/></div><button onClick={handleSaveExpense} className="w-full bg-slate-900 hover:bg-black dark:bg-orange-500 dark:hover:bg-orange-600 text-white font-bold py-3 rounded-xl mt-4 transition">保存</button><button onClick={()=>setIsAddExpenseModalOpen(false)} className="w-full text-slate-400 font-bold text-xs mt-3">キャンセル</button></div></div>}
-      
-      {/* Expiry Modal */}
-      {isAddExpiryModalOpen && <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl transition-colors"><h3 className="text-xl font-black mb-6 dark:text-white">{editingItem ? '期限を編集' : '期限を追加'}</h3><div className="space-y-4"><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">名称</label><input type="text" value={expiryForm.name} onChange={e=>setExpiryForm({...expiryForm, name:e.target.value})} className="w-full border p-3 rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold text-sm"/></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">日付</label><input type="date" value={expiryForm.date} onChange={e=>setExpiryForm({...expiryForm, date:e.target.value})} className="w-full border p-3 rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold text-sm"/></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">種類</label><div className="flex gap-2"><button onClick={()=>setExpiryForm({...expiryForm, type:'point'})} className={`flex-1 py-2 rounded-xl text-xs font-bold border ${expiryForm.type==='point'?'bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900 dark:text-blue-300':'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 dark:text-slate-400'}`}>ポイント</button><button onClick={()=>setExpiryForm({...expiryForm, type:'insurance'})} className={`flex-1 py-2 rounded-xl text-xs font-bold border ${expiryForm.type==='insurance'?'bg-purple-50 border-purple-500 text-purple-600 dark:bg-purple-900 dark:text-purple-300':'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 dark:text-slate-400'}`}>保険</button></div></div></div><div className="flex gap-3 mt-8"><button onClick={handleSaveExpiry} className="flex-1 bg-slate-900 hover:bg-black dark:bg-orange-500 dark:hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition">保存</button><button onClick={()=>setIsAddExpiryModalOpen(false)} className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-white font-bold py-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition">キャンセル</button></div></div></div>}
+
+      {/* --- Universal Modal --- */}
+      {modalType && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-3xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+               <h3 className="text-xl font-black dark:text-white">
+                 {modalType === 'asset' && '資産を追加'}
+                 {modalType === 'expense' && '支出を記録'}
+                 {modalType === 'furusato' && '寄付を記録'}
+                 {modalType === 'point' && 'ポイント追加'}
+                 {modalType === 'saving' && '目標・満期追加'}
+                 {modalType === 'card' && 'カード追加'}
+                 {modalType === 'sub' && '固定費追加'}
+               </h3>
+               <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
+            </div>
+            
+            <form onSubmit={handleAdd} className="space-y-4">
+{/* 1. 자산(주식/펀드) 입력 폼 */}
+               {modalType === 'asset' && (
+                 <>
+                   {/* 종목명 */}
+                   <div>
+                     <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">銘柄名 </label>
+                     <input required name="name" type="text" placeholder="例: Apple, 全世界株式..." className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   </div>
+
+                   {/* 단가 입력 (매수/현재) */}
+                   <div className="grid grid-cols-2 gap-3">
+                     <div>
+                       <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">平均取得単価 </label>
+                       <input required name="buyPrice" type="number" placeholder="¥ 購入単価" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                     </div>
+                     <div>
+                       <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">現在単価 </label>
+                       <input required name="currentPrice" type="number" placeholder="¥ 現在値" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                     </div>
+                   </div>
+
+                   {/* 수량 입력 (핵심!) */}
+                   <div>
+                     <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">保有数量 </label>
+                     <div className="relative">
+                        <input required name="qty" type="number" placeholder="株数 または 口数" className="w-full border p-4 rounded-2xl text-base bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                        <span className="absolute right-4 top-4 text-slate-400 text-sm font-bold">株・口</span>
+                     </div>
+                     <p className="text-[10px] text-slate-400 mt-1 ml-1">
+                       ※ 投資信託の場合は、1口あたりの価格ではなく、保有している口数を入力してください。
+                     </p>
+                   </div>
+                 </>
+               )}
+
+               {(modalType === 'expense' || modalType === 'furusato') && (
+                 <input required name="amount" type="number" placeholder="金額 (¥)" className="w-full border p-4 rounded-2xl text-2xl font-bold bg-slate-50 dark:bg-slate-700 dark:text-white" autoFocus/>
+               )}
+
+               {modalType === 'point' && (
+                 <>
+                   <input required name="name" type="text" placeholder="ポイント名 (例: Rakuten)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="val" type="number" placeholder="ポイント数" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                 </>
+               )}
+
+               {/* ★★★ [NEW] 목표/만기 입력 폼 ★★★ */}
+               {modalType === 'saving' && (
+                 <>
+                   <input required name="name" type="text" placeholder="目標名 (例: 旅行資金)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="bank" type="text" placeholder="金融機関 (例: 三菱UFJ)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="target" type="number" placeholder="目標金額 (¥)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <div className="grid grid-cols-2 gap-3">
+                     <input required name="current" type="number" placeholder="現在額 (¥)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                     <input required name="date" type="date" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   </div>
+                 </>
+               )}
+
+               {modalType === 'card' && (
+                 <>
+                   <input required name="name" type="text" placeholder="カード名" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="date" type="number" placeholder="支払日 (日)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                 </>
+               )}
+
+               {modalType === 'sub' && (
+                 <>
+                   <input required name="name" type="text" placeholder="サービス名" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="price" type="number" placeholder="月額 (¥)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                   <input required name="date" type="number" placeholder="支払日 (日)" className="w-full border p-4 rounded-2xl bg-slate-50 dark:bg-slate-700 dark:text-white"/>
+                 </>
+               )}
+
+               <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl mt-4 hover:bg-black transition text-lg">保存する</button>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
-};
-
-export default MyPage;
+}
