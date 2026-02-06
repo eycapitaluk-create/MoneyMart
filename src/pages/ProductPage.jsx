@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { 
-  PiggyBank, CreditCard, Home, CheckCircle2, X, ArrowRight, // ★ ArrowRightRight -> ArrowRight 로 수정됨
-  TrendingUp, Landmark, ShieldCheck, Gift, CalendarClock
+  PiggyBank, CreditCard, Home, CheckCircle2, X, ArrowRight,
+  TrendingUp, Landmark, ShieldCheck, Gift, CalendarClock, Calculator, FileSearch,
+  ArrowDownRight // ★ 아이콘 추가
 } from 'lucide-react';
+import PremiumLock from '../components/PremiumLock';
 
 // --- Mock Data (상품 데이터) ---
 const MOCK_PRODUCTS = {
@@ -23,6 +25,198 @@ const MOCK_PRODUCTS = {
   ],
 };
 
+// --- ★ [NEW] 갈아타기 진단 모달 (Refinance Modal) ---
+const RefinanceModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  // 상태 관리 (잔액, 현재금리, 갈아탈금리)
+  const [balance, setBalance] = useState(3000); // 단위: 만엔
+  const [currentRate, setCurrentRate] = useState(1.2); // 단위: %
+  const [newRate, setNewRate] = useState(0.35); // 단위: %
+
+  // 약식 계산 로직: (금리차 * 잔액) * (남은기간/2 가중치)
+  // 여기서는 UI 데모를 위해 '10년치 이자 절감액' 정도로 단순화하여 보여줍니다.
+  const diffRate = Math.max(0, currentRate - newRate);
+  const saveAmount = Math.round(balance * (diffRate / 100) * 10); 
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2rem] p-8 shadow-2xl relative">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition"><X size={20} className="text-slate-500 dark:text-white"/></button>
+        
+        <div className="text-center mb-6">
+           <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center mx-auto mb-4">
+             <Calculator size={32}/>
+           </div>
+           <h3 className="text-2xl font-black text-slate-900 dark:text-white">住宅ローン借り換え診断</h3>
+           <p className="text-sm text-slate-500 mt-2">現在のローンを見直すと、<br/>どれくらいお得になるか計算します。</p>
+        </div>
+
+        <div className="space-y-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl mb-6">
+           <div className="flex justify-between items-center">
+             <label className="text-xs font-bold text-slate-500">ローン残高 (万円)</label>
+             <input type="number" value={balance} onChange={e=>setBalance(Number(e.target.value))} className="w-24 text-right p-2 rounded-lg font-bold bg-white dark:bg-slate-700 dark:text-white border border-slate-200 dark:border-slate-600"/>
+           </div>
+           <div className="flex justify-between items-center">
+             <label className="text-xs font-bold text-slate-500">現在の金利 (%)</label>
+             <input type="number" step="0.1" value={currentRate} onChange={e=>setCurrentRate(Number(e.target.value))} className="w-24 text-right p-2 rounded-lg font-bold bg-white dark:bg-slate-700 dark:text-white border border-slate-200 dark:border-slate-600"/>
+           </div>
+           <div className="flex justify-between items-center">
+             <label className="text-xs font-bold text-slate-500">借り換え後 (%)</label>
+             <div className="flex items-center gap-2">
+                <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-1 rounded">最安水準</span>
+                <input type="number" step="0.01" value={newRate} readOnly className="w-24 text-right p-2 rounded-lg font-bold bg-slate-200 text-slate-500 cursor-not-allowed"/>
+             </div>
+           </div>
+        </div>
+
+        <div className="text-center">
+            <p className="text-xs text-slate-400 mb-1">借り換えた場合の総削減額（目安）</p>
+            <div className="text-4xl font-black text-orange-500 mb-6 flex items-center justify-center gap-1">
+                <ArrowDownRight size={32}/>
+                ¥{saveAmount > 0 ? saveAmount.toLocaleString() : 0}<span className="text-lg text-slate-900 dark:text-white">万円</span>
+            </div>
+            <button className="w-full py-4 bg-slate-900 dark:bg-white hover:bg-black dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold rounded-xl transition shadow-lg">
+                詳細シミュレーションへ
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Eligibility Modal (자격 진단 모달) ---
+// src/pages/ProductPage.jsx 내부의 EligibilityModal 컴포넌트 교체
+
+const EligibilityModal = ({ isOpen, onClose }) => {
+  const [income, setIncome] = useState(''); // 연봉
+  const [debt, setDebt] = useState('');     // 기타 대출
+  const [result, setResult] = useState(null); // 결과 값
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 모달 닫힐 때 초기화
+  const handleClose = () => {
+    setIncome('');
+    setDebt('');
+    setResult(null);
+    onClose();
+  };
+
+  const handleCalculate = () => {
+    if (!income) return alert("年収を入力してください");
+    
+    setIsLoading(true);
+    
+    // 🧮 일본 주택론 심사 간이 로직 (연봉의 7~8배 - 기타부채)
+    setTimeout(() => {
+      const annualIncome = parseFloat(income);
+      const existingDebt = parseFloat(debt) || 0;
+      
+      // 보수적으로 연봉의 7.5배 적용
+      const maxBorrow = Math.floor((annualIncome * 7.5) - existingDebt);
+      const safeBorrow = Math.floor((annualIncome * 6.0) - existingDebt); // 안전권
+
+      setResult({ max: maxBorrow, safe: safeBorrow });
+      setIsLoading(false);
+    }, 1000); // 1초 로딩 효과
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2rem] p-8 shadow-2xl relative overflow-hidden">
+        <button onClick={handleClose} className="absolute top-4 right-4 p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition z-10"><X size={20} className="text-slate-500 dark:text-white"/></button>
+        
+        {/* 결과 화면 */}
+        {result ? (
+           <div className="text-center animate-fadeIn">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={32}/>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">判定結果</h3>
+              <p className="text-sm text-slate-500 mb-6">あなたの年収と借入状況からの目安です</p>
+              
+              <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl mb-6">
+                 <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+                    <p className="text-xs text-slate-500 font-bold mb-1">借入可能額（上限目安）</p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-white">
+                       {result.max > 0 ? (result.max / 10000).toFixed(1) : 0} <span className="text-sm">億円</span>
+                       <span className="text-lg text-slate-400 font-medium ml-2">({result.max.toLocaleString()}万円)</span>
+                    </p>
+                 </div>
+                 <div>
+                    <p className="text-xs text-green-600 font-bold mb-1">無理のない返済ライン</p>
+                    <p className="text-xl font-bold text-green-600">
+                       {result.safe > 0 ? (result.safe / 10000).toFixed(1) : 0} 億円
+                    </p>
+                 </div>
+              </div>
+
+              <button onClick={handleClose} className="w-full py-4 bg-slate-900 dark:bg-white hover:bg-black dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold rounded-xl transition shadow-lg">
+                確認しました
+              </button>
+              <button onClick={() => setResult(null)} className="mt-4 text-sm text-slate-400 font-bold hover:text-slate-600">
+                もう一度計算する
+              </button>
+           </div>
+        ) : (
+           /* 입력 화면 */
+           <>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileSearch size={32}/>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white">借入可能額の判定</h3>
+              <p className="text-sm text-slate-500 mt-2">年収と他社借入状況から、<br/>無理のない借入目安を算出します。</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">昨年の税込年収 (万円)</label>
+                <input 
+                  type="number" 
+                  value={income}
+                  onChange={(e) => setIncome(e.target.value)}
+                  placeholder="例: 600" 
+                  className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white border-none font-bold text-lg outline-none focus:ring-2 focus:ring-green-500 transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">他社からの借入残高 (万円)</label>
+                <input 
+                  type="number" 
+                  value={debt}
+                  onChange={(e) => setDebt(e.target.value)}
+                  placeholder="例: 50" 
+                  className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white border-none font-bold text-lg outline-none focus:ring-2 focus:ring-green-500 transition"
+                />
+                <p className="text-[10px] text-slate-400 mt-1 ml-1">※ カードローン、自動車ローンなど</p>
+              </div>
+              
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-200">
+                <strong>💡 ポイント:</strong> 一般的に年収の7〜8倍が借入上限の目安と言われています。
+              </div>
+
+              <button 
+                onClick={handleCalculate}
+                disabled={isLoading}
+                className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>計算中...</>
+                ) : (
+                  <>判定する <ArrowRight size={18}/></>
+                )}
+              </button>
+            </div>
+           </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- Comparison Modal Component ---
 const ComparisonModal = ({ isOpen, onClose, products, selectedIds, category }) => {
   if (!isOpen) return null;
@@ -34,25 +228,25 @@ const ComparisonModal = ({ isOpen, onClose, products, selectedIds, category }) =
         return (
           <>
             <tr><th className="p-3 text-left text-sm text-slate-500">種類</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-bold">{p.type}</td>)}</tr>
-            <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50">金利 (年率)</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-black text-orange-600 bg-slate-50">{p.rate.toFixed(2)}%</td>)}</tr>
+            <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50 dark:bg-slate-800">金利 (年率)</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-black text-orange-600 bg-slate-50 dark:bg-slate-800">{p.rate.toFixed(2)}%</td>)}</tr>
             <tr><th className="p-3 text-left text-sm text-slate-500">預入期間</th>{selectedProducts.map(p => <td key={p.id} className="p-3">{p.period}</td>)}</tr>
-            <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50">最低預入額</th>{selectedProducts.map(p => <td key={p.id} className="p-3 bg-slate-50">{p.minAmount}万円〜</td>)}</tr>
+            <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50 dark:bg-slate-800">最低預入額</th>{selectedProducts.map(p => <td key={p.id} className="p-3 bg-slate-50 dark:bg-slate-800">{p.minAmount}万円〜</td>)}</tr>
           </>
         );
       case 'cards':
         return (
           <>
              <tr><th className="p-3 text-left text-sm text-slate-500">発行会社</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-bold">{p.issuer}</td>)}</tr>
-             <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50">年会費</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-bold bg-slate-50">{p.annualFee === 0 ? '無料' : `¥${p.annualFee.toLocaleString()}`}</td>)}</tr>
+             <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50 dark:bg-slate-800">年会費</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-bold bg-slate-50 dark:bg-slate-800">{p.annualFee === 0 ? '無料' : `¥${p.annualFee.toLocaleString()}`}</td>)}</tr>
              <tr><th className="p-3 text-left text-sm text-slate-500">基本還元率</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-black text-orange-600">{p.pointRate.toFixed(1)}%</td>)}</tr>
-             <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50">特典・ボーナス</th>{selectedProducts.map(p => <td key={p.id} className="p-3 text-sm bg-slate-50">{p.bonus}</td>)}</tr>
+             <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50 dark:bg-slate-800">特典・ボーナス</th>{selectedProducts.map(p => <td key={p.id} className="p-3 text-sm bg-slate-50 dark:bg-slate-800">{p.bonus}</td>)}</tr>
           </>
         );
       case 'mortgage':
         return (
           <>
              <tr><th className="p-3 text-left text-sm text-slate-500">金利タイプ</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-bold">{p.type}</td>)}</tr>
-             <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50">適用金利</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-black text-orange-600 bg-slate-50">{p.rate.toFixed(3)}%</td>)}</tr>
+             <tr><th className="p-3 text-left text-sm text-slate-500 bg-slate-50 dark:bg-slate-800">適用金利</th>{selectedProducts.map(p => <td key={p.id} className="p-3 font-black text-orange-600 bg-slate-50 dark:bg-slate-800">{p.rate.toFixed(3)}%</td>)}</tr>
              <tr><th className="p-3 text-left text-sm text-slate-500">事務手数料</th>{selectedProducts.map(p => <td key={p.id} className="p-3 text-sm">{p.fees}</td>)}</tr>
           </>
         );
@@ -63,7 +257,7 @@ const ComparisonModal = ({ isOpen, onClose, products, selectedIds, category }) =
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] relative">
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition"><X size={20}/></button>
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition"><X size={20} className="text-slate-500 dark:text-white"/></button>
         <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
             <TrendingUp className="text-orange-500"/> 比較結果 ({selectedProducts.length}件)
         </h3>
@@ -80,9 +274,9 @@ const ComparisonModal = ({ isOpen, onClose, products, selectedIds, category }) =
                 <tbody>
                     {renderComparisonRows()}
                     <tr>
-                        <th className="p-3 text-left text-sm text-slate-500 bg-slate-50">特徴</th>
+                        <th className="p-3 text-left text-sm text-slate-500 bg-slate-50 dark:bg-slate-800">特徴</th>
                         {selectedProducts.map(p => (
-                            <td key={p.id} className="p-3 bg-slate-50">
+                            <td key={p.id} className="p-3 bg-slate-50 dark:bg-slate-800">
                                 <ul className="text-sm space-y-1">
                                     {p.features.map((f, i) => <li key={i} className="flex items-center gap-1"><CheckCircle2 size={12} className="text-green-500 flex-shrink-0"/> {f}</li>)}
                                 </ul>
@@ -107,10 +301,14 @@ const ComparisonModal = ({ isOpen, onClose, products, selectedIds, category }) =
 
 
 // --- Main Page Component ---
-const ProductPage = () => {
-  const [activeTab, setActiveTab] = useState('savings'); // 'savings', 'cards', 'mortgage'
+const ProductPage = ({ user }) => {
+  const [activeTab, setActiveTab] = useState('savings'); 
   const [selectedItems, setSelectedItems] = useState([]);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  
+  // ★ 상태 추가
+  const [isEligibleOpen, setIsEligibleOpen] = useState(false);
+  const [isRefinanceOpen, setIsRefinanceOpen] = useState(false); // [NEW] 갈아타기 모달 상태
 
   const currentProducts = MOCK_PRODUCTS[activeTab];
 
@@ -158,6 +356,39 @@ const ProductPage = () => {
             ))}
           </div>
       </div>
+
+      {/* ★ PremiumLock 적용된 도구 모음 */}
+      {activeTab === 'mortgage' && (
+        <div className="max-w-4xl mx-auto mb-8">
+           <PremiumLock user={user} title="借り換え・限度額判定">
+              <div className="grid grid-cols-2 gap-4">
+                 {/* 1. 갈아타기 진단 버튼 */}
+                 <button 
+                   onClick={() => setIsRefinanceOpen(true)} // ★ alert 대신 모달 Open
+                   className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-orange-500 transition group"
+                 >
+                    <div className="p-2 bg-orange-100 text-orange-600 rounded-lg group-hover:scale-110 transition"><Calculator size={20}/></div>
+                    <div className="text-left">
+                       <div className="text-xs text-slate-500 font-bold">今のローンと比較</div>
+                       <div className="font-bold text-slate-900 dark:text-white">借り換え診断</div>
+                    </div>
+                 </button>
+
+                 {/* 2. 대출 한도 조회 버튼 */}
+                 <button 
+                   onClick={() => setIsEligibleOpen(true)}
+                   className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-green-500 transition group"
+                 >
+                    <div className="p-2 bg-green-100 text-green-600 rounded-lg group-hover:scale-110 transition"><FileSearch size={20}/></div>
+                    <div className="text-left">
+                       <div className="text-xs text-slate-500 font-bold">いくら借りられる？</div>
+                       <div className="font-bold text-slate-900 dark:text-white">借入可能額判定</div>
+                    </div>
+                 </button>
+              </div>
+           </PremiumLock>
+        </div>
+      )}
 
       {/* Product List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -215,7 +446,6 @@ const ProductPage = () => {
                   )}
 
                   <button className="w-full py-3 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-white font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition flex items-center justify-center gap-2 group/btn">
-                      {/* ★ 여기 수정됨: ArrowRightRight -> ArrowRight */}
                       詳細を見る <ArrowRight size={16} className="group-hover/btn:translate-x-1 transition-transform"/>
                   </button>
               </div>
@@ -238,6 +468,18 @@ const ProductPage = () => {
         products={currentProducts}
         selectedIds={selectedItems}
         category={activeTab}
+      />
+      
+      {/* Eligibility Modal */}
+      <EligibilityModal 
+        isOpen={isEligibleOpen} 
+        onClose={() => setIsEligibleOpen(false)} 
+      />
+      
+      {/* ★ [NEW] Refinance Modal */}
+      <RefinanceModal
+        isOpen={isRefinanceOpen}
+        onClose={() => setIsRefinanceOpen(false)}
       />
 
     </div>

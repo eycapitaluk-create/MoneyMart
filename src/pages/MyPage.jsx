@@ -4,10 +4,10 @@ import {
 } from 'recharts';
 import { 
   Wallet, Bell, RefreshCw, 
-  TrendingUp, ShieldCheck, Trash2, X, Gift, Coins, Zap, 
-  // ★ 여기에 CreditCard가 빠져 있어서 에러가 났었습니다! 추가함.
-  CreditCard
+  TrendingUp, ShieldCheck, Trash2, X, Gift, Coins, Zap, CreditCard,
+  AlertTriangle, Activity, Sliders // ★ 아이콘 추가
 } from 'lucide-react';
+import PremiumLock from '../components/PremiumLock'; // ★ PremiumLock import
 
 const INITIAL_ASSETS = [
   { id: 1, name: '米国株 (Tesla)', buyPrice: 20000, currentPrice: 24800, qty: 10, color: '#EF4444' },
@@ -41,7 +41,93 @@ const INITIAL_POINTS = [
 
 const INITIAL_FURUSATO = { limit: 70000, donated: 45000 };
 
-export default function MoneyMartFinal() {
+// --- [NEW] Debt Dashboard Component ---
+const DebtDashboard = () => {
+  const [rateHike, setRateHike] = useState(0); 
+  
+  const loanPrincipal = 30000000;
+  const currentRate = 0.475; // %
+  const currentPayment = 85000;
+  
+  // 시나리오 계산 (약식)
+  const simulatedPayment = Math.round(currentPayment * (1 + (rateHike * 0.15))); 
+  const increaseAmount = simulatedPayment - currentPayment;
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg relative overflow-hidden">
+       <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Activity className="text-rose-500"/> 負債・リスク分析
+          </h3>
+          <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-xs font-bold px-2 py-1 rounded-lg">要注意</span>
+       </div>
+
+       {/* 1. 현재 부채 상태 (DSR 등) */}
+       <div className="grid grid-cols-2 gap-4 mb-8">
+          <div className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-2xl">
+             <div className="text-xs text-slate-500 mb-1 font-bold">返済負担率 (DSR)</div>
+             <div className="text-2xl font-black text-slate-900 dark:text-white">22.5<span className="text-sm font-medium text-slate-400">%</span></div>
+             <div className="w-full bg-slate-200 dark:bg-slate-600 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div className="bg-green-500 h-full w-[22.5%]"></div>
+             </div>
+             <p className="text-[10px] text-green-600 mt-1 font-bold">適正範囲内です</p>
+          </div>
+          <div className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-2xl">
+             <div className="text-xs text-slate-500 mb-1 font-bold">金利タイプ比率</div>
+             <div className="text-2xl font-black text-slate-900 dark:text-white">100<span className="text-sm font-medium text-slate-400">% 変動</span></div>
+             <div className="w-full bg-slate-200 dark:bg-slate-600 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div className="bg-rose-500 h-full w-full"></div>
+             </div>
+             <p className="text-[10px] text-rose-500 mt-1 font-bold">金利上昇リスクあり</p>
+          </div>
+       </div>
+
+       {/* 2. 미래 시나리오 시뮬레이션 */}
+       <div className="bg-slate-900 dark:bg-black rounded-2xl p-6 text-white">
+          <div className="flex items-center gap-2 mb-4">
+             <Sliders size={16} className="text-orange-400"/>
+             <span className="font-bold text-sm">金利上昇シナリオ分析</span>
+          </div>
+          
+          <div className="mb-6">
+             <div className="flex justify-between text-xs text-slate-400 mb-2">
+                <span>現在 (+0%)</span>
+                <span>+2.0%</span>
+             </div>
+             <input 
+               type="range" min="0" max="2" step="0.5" 
+               value={rateHike} onChange={(e) => setRateHike(Number(e.target.value))}
+               className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+             />
+             <div className="text-center mt-2 font-bold text-orange-400">
+                もし金利が +{rateHike.toFixed(1)}% 上がったら...
+             </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+             <div>
+                <p className="text-xs text-slate-400">毎月の返済額</p>
+                <p className="text-xl font-bold">¥{simulatedPayment.toLocaleString()}</p>
+             </div>
+             <div className="text-right">
+                <p className="text-xs text-slate-400">負担増加額</p>
+                <p className="text-xl font-bold text-rose-500">+¥{increaseAmount.toLocaleString()}</p>
+             </div>
+          </div>
+          
+          {rateHike > 1.0 && (
+             <div className="mt-4 p-3 bg-rose-500/20 border border-rose-500/50 rounded-xl flex items-start gap-2 text-xs text-rose-200">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0"/>
+                家計への影響が大きいため、固定金利への借り換え検討を推奨します。
+             </div>
+          )}
+       </div>
+    </div>
+  );
+};
+
+// ★ user prop 추가 (App.js에서 내려줘야 함)
+export default function MoneyMartFinal({ user, watchlist }) {
   const [assets, setAssets] = useState(INITIAL_ASSETS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [cards, setCards] = useState(INITIAL_CARDS);
@@ -151,7 +237,7 @@ export default function MoneyMartFinal() {
       <div className="flex justify-between items-start mb-10 relative">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">MoneyMart</h1>
-          <p className="text-lg text-slate-500 font-medium">Justin様の資産ポートフォリオ</p>
+          <p className="text-lg text-slate-500 font-medium">{user ? `${user.name}様` : 'ゲスト様'}の資産ポートフォリオ</p>
         </div>
         
         {/* Notification Bell */}
@@ -200,7 +286,7 @@ export default function MoneyMartFinal() {
                <div className="bg-white/20 p-5 rounded-full text-5xl shadow-inner backdrop-blur-md animate-[bounce_3s_infinite]">🦅</div>
                <div className="flex-1 w-full text-center md:text-left">
                  <div className="inline-block bg-indigo-900/30 px-4 py-1 rounded-full text-sm font-bold text-indigo-200 mb-3 border border-indigo-400/30">MoneyMart AI アシスタント</div>
-                 <h2 className="text-2xl md:text-3xl font-bold leading-tight mb-2">Justin様、今月の予算管理は順調です！</h2>
+                 <h2 className="text-2xl md:text-3xl font-bold leading-tight mb-2">{user ? user.name : 'ゲスト'}様、今月の予算管理は順調です！</h2>
                  <p className="text-indigo-100 text-lg mb-6 opacity-90">
                    現在 <span className="font-bold text-white text-xl">{Math.round((spent/budget)*100)}%</span> 消費中。昨日に比べて支出ペースが落ち着いています。
                  </p>
@@ -272,6 +358,11 @@ export default function MoneyMartFinal() {
               </div>
             </div>
           </div>
+          
+          {/* ★ [NEW] Debt Dashboard with Premium Lock */}
+          <PremiumLock user={user} title="AI 負債・リスク分析">
+            <DebtDashboard />
+          </PremiumLock>
 
           {/* AI Analysis Card */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
