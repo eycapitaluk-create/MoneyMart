@@ -47,7 +47,7 @@ const ComparisonPage = () => {
         else if (location.state.initialFundId) {
             setSelectedIds(prev => {
                 if (prev.includes(location.state.initialFundId)) return prev;
-                // ★ [수정] 2개 이상이면 1개만 남기고 새로 들어온 것 추가
+                // 2개 이상이면 1개만 남기고 새로 들어온 것 추가
                 if (prev.length >= 2) return [location.state.initialFundId, ...prev.slice(0, 1)];
                 return [...prev, location.state.initialFundId];
             });
@@ -66,7 +66,7 @@ const ComparisonPage = () => {
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter(itemId => itemId !== id));
     } else {
-      // ★ [수정] 최대 2개 제한 체크
+      // 최대 2개 제한 체크
       if (selectedIds.length >= 2) {
         alert("比較できるのは最大2つまでです");
         return;
@@ -108,7 +108,6 @@ const ComparisonPage = () => {
           <ArrowLeft size={24} className="text-gray-600"/>
         </button>
         <h1 className="text-xl font-bold text-gray-900">ファンド比較</h1>
-        {/* ★ [수정] 헤더 카운트 표시 */}
         <span className="ml-auto text-xs font-bold bg-orange-100 text-orange-600 px-3 py-1 rounded-full">
           {selectedIds.length} / 2 選択中
         </span>
@@ -123,7 +122,10 @@ const ComparisonPage = () => {
             <span className="text-xs font-normal text-gray-400">(タップで追加/解除)</span>
           </h3>
           
-          <div className="flex gap-4 overflow-x-auto pb-6 px-1 scrollbar-hide">
+          {/* ★ [수정 포인트] pt-4 추가! 
+             위쪽에 여백을 줘서 체크 표시(-top-2)가 잘리지 않게 함 
+          */}
+          <div className="flex gap-4 overflow-x-auto pb-6 px-1 pt-4 scrollbar-hide">
             {allProducts.map(product => (
               <div 
                 key={product.id}
@@ -299,7 +301,6 @@ const ComparisonPage = () => {
                 <AlertCircle className="text-gray-400" size={32} />
              </div>
              <p className="text-gray-600 font-bold text-lg mb-1">比較するファンドがありません</p>
-             {/* ★ [수정] 안내 문구 변경 */}
              <p className="text-sm text-gray-400">上のリストから商品をタップして選択してください (最大2つ)</p>
           </div>
         )}

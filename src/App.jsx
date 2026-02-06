@@ -16,10 +16,14 @@ import FundDetailPage from './pages/FundDetailPage';
 import FinancialComparisonPage from './pages/FinancialComparisonPage';
 import AdminPage from './pages/AdminPage';
 import Payment from './pages/Payment';
-// ★ ProductPage (구 LoanPage)
 import ProductPage from './pages/ProductPage';
-// ★★★ [중요] RiskModal import
 import RiskModal from './components/RiskModal';
+
+// 👇 [수정] ContactPage를 지웠습니다! (HelpPage, StatusPage 등은 유지)
+import { 
+  AboutPage, TermsPage, PrivacyPage, SecurityPage, 
+  HelpPage, StatusPage 
+} from './pages/StaticPages';
 
 const TERMS_TEXT = `
 【利用規約】
@@ -87,8 +91,6 @@ const App = () => {
     }
   };
 
-  // src/App.jsx 내부 checkAndSaveUser 함수 수정
-
   const checkAndSaveUser = async (authUser) => {
     if (!authUser) return;
     const email = authUser.email;
@@ -99,11 +101,7 @@ const App = () => {
     
     setUser({ 
       id: authUser.id, name, email, avatar, 
-      
-      // 🚩 [수정] 개발 중에는 무조건 'premium'으로 설정해서 기능을 확인하세요!
-      // 테스트가 끝나면: dbUser?.plan?.toLowerCase() || 'free' 로 되돌리세요.
       plan: 'premium', 
-      
       role: dbUser?.role || (email.includes('admin') ? 'admin' : 'user'),
       riskProfile: dbUser?.risk_profile || null,
     });
@@ -159,22 +157,26 @@ const App = () => {
         <Routes>
           <Route path="/" element={<HomePage onNavigate={(path) => navigate(path)} user={user} openRiskModal={() => setIsRiskModalOpen(true)} />} />
           <Route path="/funds" element={<FundPage user={user} myWatchlist={myWatchlist} toggleWatchlist={(id) => { if(!user) setIsLoginModalOpen(true); else setMyWatchlist(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]) }} />} />
-          
-          {/* 👇 [수정됨] user 정보를 넘겨줘야 FundDetailPage 내부의 PremiumLock이 작동합니다! */}
           <Route path="/fund/:id" element={<FundDetailPage user={user} />} />
-          
           <Route path="/comparison" element={<FinancialComparisonPage />} />
           <Route path="/mypage" element={<MyPage user={user} watchlist={myWatchlist} />} />
           <Route path="/market" element={<MarketPage />} />
-          
-          {/* 👇 [수정됨] user 정보를 넘겨줘야 ProductPage 내부의 PremiumLock이 작동합니다! */}
           <Route path="/products" element={<ProductPage user={user} />} />
-          
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/learn" element={<LearningPage user={user} />} />
           <Route path="/premium" element={<Payment />} />
           <Route path="/admin" element={<AdminPage users={INITIAL_USERS} />} />
           <Route path="/login" element={<div/>} /> 
+          
+          {/* Footer 링크 연결 */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/security" element={<SecurityPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/status" element={<StatusPage />} />
+          {/* 👇 [수정] ContactPage 라우트는 삭제됨 */}
+
         </Routes>
       </CommonUI>
       
@@ -183,7 +185,7 @@ const App = () => {
         onClose={() => setIsRiskModalOpen(false)} 
       />
 
-      {/* Login / Signup Modal */}
+      {/* Login Modal */}
       {isLoginModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center relative transition-colors">

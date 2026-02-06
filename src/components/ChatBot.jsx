@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  MessageCircle, X, Send, Mail, User, Bot, 
-  ChevronLeft, Loader2, Paperclip 
+  MessageCircle, X, Send, Mail, Bot, 
+  ChevronLeft, Loader2 
 } from 'lucide-react';
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState('chat'); // 'chat' or 'contact'
+  const [mode, setMode] = useState('chat'); // 'chat' | 'contact'
   const [isTyping, setIsTyping] = useState(false);
   
   // --- Chat State ---
@@ -20,25 +20,24 @@ export default function ChatBot() {
   const [contactForm, setContactForm] = useState({ email: '', message: '' });
   const [isSending, setIsSending] = useState(false);
 
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen, mode]);
 
   // --- Handlers ---
-
   const handleSendMessage = () => {
     if (!inputText.trim()) return;
 
-    // 1. 유저 메시지 추가
+    // 1. 유저 메시지
     const userMsg = { id: Date.now(), sender: 'user', text: inputText };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsTyping(true);
 
-    // 2. AI 응답 시뮬레이션 (간단한 키워드 매칭)
+    // 2. AI 응답 (시뮬레이션)
     setTimeout(() => {
-      let botResponse = "申し訳ありません。その質問にはまだ答えられません。「お問い合わせ」から担当者へご連絡ください。";
+      let botResponse = "申し訳ありません。その質問にはまだ答えられません。右上のメールアイコンから担当者へご連絡ください。";
       
       if (inputText.includes("NISA")) botResponse = "新NISAについては、年間360万円まで非課税で投資可能です。つみたて投資枠と成長投資枠があります。";
       else if (inputText.includes("ローン") || inputText.includes("金利")) botResponse = "住宅ローンシミュレーターは「ローン診断」ページからご利用いただけます。最新の変動金利は0.3%台からです。";
@@ -56,12 +55,12 @@ export default function ChatBot() {
 
     setIsSending(true);
     
-    // 이메일 전송 시뮬레이션
+    // 이메일 전송 (시뮬레이션)
     setTimeout(() => {
       setIsSending(false);
       alert("お問い合わせを受け付けました。\n担当者より24時間以内にメールでご連絡いたします。");
       setContactForm({ email: '', message: '' });
-      setMode('chat'); // 채팅으로 복귀
+      setMode('chat'); // 전송 후 채팅 모드로 복귀
       setMessages(prev => [...prev, { id: Date.now(), sender: 'bot', text: 'お問い合わせありがとうございます。担当者からの連絡をお待ちください。' }]);
     }, 1500);
   };
@@ -70,20 +69,23 @@ export default function ChatBot() {
     <div className="fixed bottom-6 right-6 z-[9999] font-sans">
       
       {/* 1. Chat Button (Floating Action Button) */}
-      {!isOpen && (
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition duration-300 animate-bounce-slow group"
-        >
-          <MessageCircle size={32} className="group-hover:rotate-12 transition"/>
-          {/* Notification Badge */}
+      {/* ★★★ 중요: 헬프 센터와 연결하기 위해 id 추가 ★★★ */}
+      <button 
+        id="chatbot-toggle" 
+        onClick={() => setIsOpen(!isOpen)}
+        className={`${isOpen ? 'bg-slate-800 rotate-90' : 'bg-gradient-to-r from-orange-500 to-red-500 animate-bounce-slow'} w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition duration-300 group`}
+      >
+        {isOpen ? <X size={28}/> : <MessageCircle size={32} className="group-hover:rotate-12 transition"/>}
+        
+        {/* 알림 뱃지 (닫혀있을 때만) */}
+        {!isOpen && (
           <span className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-full border-2 border-white"></span>
-        </button>
-      )}
+        )}
+      </button>
 
       {/* 2. Chat Window */}
       {isOpen && (
-        <div className={`w-[90vw] md:w-96 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden flex flex-col transition-all duration-300 origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`} style={{ height: '600px', maxHeight: '80vh' }}>
+        <div className="absolute bottom-20 right-0 w-[90vw] md:w-96 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden flex flex-col transition-all duration-300 animate-slideUp origin-bottom-right h-[600px] max-h-[80vh]">
           
           {/* Header */}
           <div className="bg-slate-900 dark:bg-slate-800 p-4 flex justify-between items-center text-white shrink-0">
@@ -105,7 +107,9 @@ export default function ChatBot() {
                 </p>
               </div>
             </div>
+            
             <div className="flex items-center gap-1">
+              {/* 채팅 모드일 때만 문의 아이콘 표시 */}
               {mode === 'chat' && (
                 <button 
                   onClick={() => setMode('contact')} 
@@ -154,7 +158,7 @@ export default function ChatBot() {
             {/* MODE: Contact Form */}
             {mode === 'contact' && (
               <div className="animate-fadeIn">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl mb-6 text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl mb-6 text-sm text-blue-800 dark:text-blue-200 leading-relaxed border border-blue-100 dark:border-blue-800">
                   AIで解決しない場合は、こちらから担当者へ直接メッセージを送信できます。<br/>
                   <span className="text-xs opacity-70 mt-1 block">※ 原則24時間以内に返信いたします。</span>
                 </div>
@@ -185,7 +189,7 @@ export default function ChatBot() {
                   <button 
                     type="submit" 
                     disabled={isSending}
-                    className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
                   >
                     {isSending ? <Loader2 className="animate-spin"/> : <><Send size={18}/> 送信する</>}
                   </button>
