@@ -2,19 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowRight, TrendingUp, Shield, BarChart2, 
-  Crown, ChevronRight, CreditCard, Landmark 
+  Sparkles, ChevronRight, CreditCard, Landmark, Loader2
 } from 'lucide-react';
 
-// ✅ 수정됨: 가짜 데이터(mockData) 대신 실제 데이터(realData) 사용
-import { funds } from '../data/realData';
+import { supabase } from '../lib/supabase';
 
 const HomePage = ({ openRiskModal }) => {
   const navigate = useNavigate();
 
-  // 상위 3개 펀드만 추천 상품으로 표시
-  const featuredFunds = funds.slice(0, 3);
+  const [featuredFunds, setFeaturedFunds] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 시장 지수 데이터 (realData에 없으므로 여기서 직접 정의)
+  // 시장 지수 데이터 (고정)
   const marketIndices = [
     { name: "日経平均", value: 38500.12, change: 1.25 },
     { name: "TOPIX", value: 2715.40, change: 0.88 },
@@ -22,39 +21,22 @@ const HomePage = ({ openRiskModal }) => {
     { name: "ドル/円", value: 148.55, change: 0.05 },
   ];
 
-  // B2B 광고 데이터
   const rollingAds = [
     { 
-      id: 1, 
-      category: "保険商品", 
-      title: "生命保険・医療保険", 
-      desc: "万が一に備える。人気保険プラン一括比較", 
-      color: "bg-rose-500", 
-      icon: <Shield size={24} className="opacity-80"/>
+      id: 1, category: "保険商品", title: "生命保険・医療保険", 
+      desc: "万が一に備える。人気保険プラン一括比較", color: "bg-rose-500", icon: <Shield size={24} className="opacity-80"/>
     },
     { 
-      id: 2, 
-      category: "ファンド", 
-      title: "厳選！投資信託", 
-      desc: "NISA対応！プロが選ぶ急成長ファンド特集", 
-      color: "bg-blue-600", 
-      icon: <BarChart2 size={24} className="opacity-80"/>
+      id: 2, category: "ファンド", title: "厳選！投資信託", 
+      desc: "NISA対応！プロが選ぶ急成長ファンド特集", color: "bg-blue-600", icon: <BarChart2 size={24} className="opacity-80"/>
     },
     { 
-      id: 3, 
-      category: "カード", 
-      title: "クレジットカード", 
-      desc: "最大10,000pt還元！ゴールドカード入会CP", 
-      color: "bg-orange-500", 
-      icon: <CreditCard size={24} className="opacity-80"/>
+      id: 3, category: "カード", title: "クレジットカード", 
+      desc: "最大10,000pt還元！ゴールドカード入会CP", color: "bg-orange-500", icon: <CreditCard size={24} className="opacity-80"/>
     },
     { 
-      id: 4, 
-      category: "銀行", 
-      title: "住宅ローン・ネット銀行", 
-      desc: "借り換えで総返済額を減らすチャンス！", 
-      color: "bg-emerald-600", 
-      icon: <Landmark size={24} className="opacity-80"/>
+      id: 4, category: "銀行", title: "住宅ローン・ネット銀行", 
+      desc: "借り換えで総返済額を減らすチャンス！", color: "bg-emerald-600", icon: <Landmark size={24} className="opacity-80"/>
     },
   ];
 
@@ -64,8 +46,49 @@ const HomePage = ({ openRiskModal }) => {
     const timer = setInterval(() => {
       setCurrentAdIndex((prev) => (prev + 1) % rollingAds.length);
     }, 4000); 
-
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchFeaturedFunds = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('funds')
+          .select('*')
+          .order('return_rate', { ascending: false })
+          .limit(3);
+
+        if (error) throw error;
+
+        const formattedData = data.map(item => {
+            const basePrice = item.base_price || 10000;
+            const changePrice = item.change_price || 0;
+            const changePercent = basePrice !== 0 
+                ? ((changePrice / basePrice) * 100).toFixed(2) 
+                : '0.00';
+
+            return {
+                id: item.id,
+                fundName: item.name,
+                managementCompany: item.company,
+                category: item.category,
+                riskLevel: item.risk_level,
+                basePrice: basePrice,
+                prevComparison: changePrice,
+                prevComparisonPercent: changePercent,
+            };
+        });
+
+        setFeaturedFunds(formattedData);
+      } catch (err) {
+        console.error("Error fetching featured funds:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFeaturedFunds();
   }, []);
 
   return (
@@ -84,7 +107,6 @@ const HomePage = ({ openRiskModal }) => {
           </p>
           <div className="flex flex-col md:flex-row gap-4 justify-center md:justify-start">
             <button 
-              /* 🚩 수정됨: 경로를 /fund -> /funds 로 변경 (복수형) */
               onClick={() => navigate('/funds')}
               className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2"
             >
@@ -92,7 +114,6 @@ const HomePage = ({ openRiskModal }) => {
             </button>
             
             <button 
-              /* 🚩 확인: App.js에서 openRiskModal 함수를 안 내려주면 작동 안 함. 일단 여기 코드는 정상 */
               onClick={openRiskModal}
               className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold backdrop-blur-sm transition"
             >
@@ -100,8 +121,6 @@ const HomePage = ({ openRiskModal }) => {
             </button>
           </div>
         </div>
-        
-        {/* 배경 장식 */}
         <div className="absolute right-0 top-0 w-1/2 h-full bg-orange-500/10 blur-3xl rounded-full transform translate-x-1/2 -translate-y-1/4"></div>
       </section>
 
@@ -120,28 +139,28 @@ const HomePage = ({ openRiskModal }) => {
         </div>
       </div>
 
-      {/* 3. 광고 섹션 */}
+      {/* 3. 광고 섹션 (수정됨) */}
       <section className="max-w-7xl mx-auto px-4 pt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* (1) 고정 광고 */}
+          {/* (1) AI 리포트 강조 (구 Premium) */}
           <div 
-            onClick={() => navigate('/premium')}
-            className="bg-gradient-to-br from-gray-900 to-black text-white rounded-2xl p-6 shadow-md relative overflow-hidden cursor-pointer group h-48 flex flex-col justify-center"
+            onClick={() => navigate('/market')}
+            className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-2xl p-6 shadow-md relative overflow-hidden cursor-pointer group h-48 flex flex-col justify-center"
           >
             <div className="relative z-10">
-              <div className="flex items-center gap-2 text-yellow-400 font-bold mb-2">
-                <Crown size={20} fill="currentColor" />
-                <span>Premium Plan</span>
+              <div className="flex items-center gap-2 text-violet-200 font-bold mb-2">
+                <Sparkles size={20} fill="currentColor" />
+                <span className="bg-white/20 px-2 py-0.5 rounded text-xs">Beta Free</span>
               </div>
-              <h3 className="text-2xl font-bold mb-1">プロ級の分析を<br/>あなたの手に。</h3>
-              <p className="text-gray-400 text-sm">月額 500円 / AI分析・リアルタイム株価</p>
+              <h3 className="text-2xl font-bold mb-1">AI マーケット分析</h3>
+              <p className="text-violet-100 text-sm">毎朝更新！AIが市場トレンドを要約。<br/>今なら無料で閲覧可能です。</p>
               
-              <div className="mt-4 flex items-center text-sm font-bold text-yellow-500 group-hover:translate-x-1 transition-transform">
-                詳しく見る <ChevronRight size={16} />
+              <div className="mt-4 flex items-center text-sm font-bold text-white group-hover:translate-x-1 transition-transform">
+                レポートを見る <ChevronRight size={16} />
               </div>
             </div>
-            <div className="absolute -right-4 -bottom-8 w-32 h-32 bg-yellow-500 rounded-full blur-3xl opacity-20"></div>
+            <div className="absolute -right-4 -bottom-8 w-32 h-32 bg-violet-400 rounded-full blur-3xl opacity-30"></div>
           </div>
 
           {/* (2) 롤링 광고 */}
@@ -187,7 +206,6 @@ const HomePage = ({ openRiskModal }) => {
             <p className="text-gray-500 text-sm mt-1">今、投資家に選ばれている人気商品</p>
           </div>
           <button 
-            /* 🚩 수정됨: 경로를 /fund -> /funds 로 변경 */
             onClick={() => navigate('/funds')}
             className="text-orange-600 font-bold text-sm hover:underline"
           >
@@ -195,44 +213,48 @@ const HomePage = ({ openRiskModal }) => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {featuredFunds.map((fund) => (
-            <div 
-              key={fund.id}
-              /* ✅ 중요: 상세 페이지는 /fund/:id 가 맞습니다 (단수형) */
-              onClick={() => navigate(`/fund/${fund.id}`)}
-              className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition cursor-pointer group"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md font-medium">
-                  {fund.category}
-                </span>
-                <span className={`text-xs px-2 py-1 rounded-full font-bold ${fund.riskLevel >= 4 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                   Risk Lv.{fund.riskLevel}
-                </span>
-              </div>
-              
-              <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
-                {fund.fundName}
-              </h3>
-              {/* fund.fundNameEn이 있으면 보여주고 없으면 운용사명 표시 */}
-              <p className="text-xs text-gray-500 mb-4">{fund.fundNameEn || fund.managementCompany}</p>
-              
-              <div className="flex justify-between items-end border-t border-gray-100 pt-4">
-                <div>
-                  <div className="text-xs text-gray-400">基準価額</div>
-                  <div className="font-bold text-xl text-gray-900">¥{fund.basePrice.toLocaleString()}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-gray-400">前日比</div>
-                  <div className={`font-bold ${(fund.prevComparison || 0) >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                    {(fund.prevComparison || 0) >= 0 ? '+' : ''}{fund.prevComparisonPercent}%
-                  </div>
-                </div>
-              </div>
+        {isLoading ? (
+            <div className="flex justify-center items-center py-20">
+                <Loader2 className="animate-spin text-orange-500"/>
             </div>
-          ))}
-        </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {featuredFunds.map((fund) => (
+                <div 
+                key={fund.id}
+                onClick={() => navigate(`/fund/${fund.id}`)}
+                className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition cursor-pointer group"
+                >
+                <div className="flex justify-between items-start mb-4">
+                    <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md font-medium truncate max-w-[70%]">
+                    {fund.category}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${fund.riskLevel >= 4 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                    Risk Lv.{fund.riskLevel}
+                    </span>
+                </div>
+                
+                <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
+                    {fund.fundName}
+                </h3>
+                <p className="text-xs text-gray-500 mb-4">{fund.managementCompany}</p>
+                
+                <div className="flex justify-between items-end border-t border-gray-100 pt-4">
+                    <div>
+                    <div className="text-xs text-gray-400">基準価額</div>
+                    <div className="font-bold text-xl text-gray-900">¥{fund.basePrice.toLocaleString()}</div>
+                    </div>
+                    <div className="text-right">
+                    <div className="text-xs text-gray-400">前日比</div>
+                    <div className={`font-bold ${(fund.prevComparison || 0) >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                        {(fund.prevComparison || 0) >= 0 ? '+' : ''}{fund.prevComparisonPercent}%
+                    </div>
+                    </div>
+                </div>
+                </div>
+            ))}
+            </div>
+        )}
       </section>
 
       {/* 5. 서비스 특징 */}

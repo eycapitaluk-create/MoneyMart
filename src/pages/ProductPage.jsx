@@ -4,7 +4,8 @@ import {
   TrendingUp, Landmark, ShieldCheck, Gift, CalendarClock, Calculator, FileSearch,
   ArrowDownRight // ★ 아이콘 추가
 } from 'lucide-react';
-import PremiumLock from '../components/PremiumLock';
+
+// PremiumLock import 제거 (무료 개방)
 
 // --- Mock Data (상품 데이터) ---
 const MOCK_PRODUCTS = {
@@ -357,10 +358,9 @@ const ProductPage = ({ user }) => {
           </div>
       </div>
 
-      {/* ★ PremiumLock 적용된 도구 모음 */}
+      {/* ★ PremiumLock 없이 바로 도구 노출 (무료 개방) */}
       {activeTab === 'mortgage' && (
-        <div className="max-w-4xl mx-auto mb-8">
-           <PremiumLock user={user} title="借り換え・限度額判定">
+        <div className="max-w-4xl mx-auto mb-8 animate-fadeIn">
               <div className="grid grid-cols-2 gap-4">
                  {/* 1. 갈아타기 진단 버튼 */}
                  <button 
@@ -386,7 +386,6 @@ const ProductPage = ({ user }) => {
                     </div>
                  </button>
               </div>
-           </PremiumLock>
         </div>
       )}
 

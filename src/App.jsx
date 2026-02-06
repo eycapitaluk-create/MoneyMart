@@ -19,7 +19,6 @@ import Payment from './pages/Payment';
 import ProductPage from './pages/ProductPage';
 import RiskModal from './components/RiskModal';
 
-// 👇 [수정] ContactPage를 지웠습니다! (HelpPage, StatusPage 등은 유지)
 import { 
   AboutPage, TermsPage, PrivacyPage, SecurityPage, 
   HelpPage, StatusPage 
@@ -43,6 +42,8 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
+  
+  // ★ DB와 연동될 상태들
   const [myPortfolio, setMyPortfolio] = useState([]); 
   const [myWatchlist, setMyWatchlist] = useState([]); 
   const [darkMode, setDarkMode] = useState(false);
@@ -62,8 +63,12 @@ const App = () => {
       if (session) checkAndSaveUser(session.user);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) checkAndSaveUser(session.user);
-      else setUser(null);
+      if (session) {
+        checkAndSaveUser(session.user);
+      } else {
+        setUser(null);
+        setMyWatchlist([]); // 로그아웃 시 초기화
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -82,6 +87,62 @@ const App = () => {
     }
   }, [isLoginModalOpen, isSignUp]);
 
+  // ★ [NEW] 찜 목록(Watchlist) DB에서 가져오기
+  const fetchWatchlist = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('watchlists')
+        .select('fund_id')
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+      
+      // fund_id만 추출해서 배열로 저장
+      const ids = data.map(item => item.fund_id);
+      setMyWatchlist(ids);
+    } catch (e) {
+      console.error("Watchlist fetch error:", e);
+    }
+  };
+
+  // ★ [NEW] 찜 토글 (DB 반영)
+  const toggleWatchlist = async (fundId) => {
+    if (!user) {
+      setIsLoginModalOpen(true);
+      return;
+    }
+
+    const isAlreadyWatched = myWatchlist.includes(fundId);
+
+    // 1. UI 즉시 반영 (Optimistic Update)
+    setMyWatchlist(prev => 
+      isAlreadyWatched ? prev.filter(id => id !== fundId) : [...prev, fundId]
+    );
+
+    try {
+      if (isAlreadyWatched) {
+        // 삭제
+        const { error } = await supabase
+          .from('watchlists')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('fund_id', fundId);
+        if (error) throw error;
+      } else {
+        // 추가
+        const { error } = await supabase
+          .from('watchlists')
+          .insert({ user_id: user.id, fund_id: fundId });
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.error("Watchlist toggle error:", e);
+      alert("処理に失敗しました。");
+      // 에러 나면 롤백
+      fetchWatchlist(user.id);
+    }
+  };
+
   const handleScrollTerms = () => {
     if (termsBoxRef.current) {
         const { scrollTop, scrollHeight, clientHeight } = termsBoxRef.current;
@@ -97,14 +158,34 @@ const App = () => {
     const name = authUser.user_metadata.full_name || authUser.user_metadata.name || email.split('@')[0];
     const avatar = name.charAt(0).toUpperCase();
 
-    const { data: dbUser } = await supabase.from('users').select('plan, role, risk_profile').eq('id', authUser.id).single();
+    // ★ [수정] 'users' -> 'profiles' 테이블 사용
+    // 프로필이 없으면 생성, 있으면 조회
+    let { data: dbUser, error } = await supabase
+      .from('profiles')
+      .select('plan, risk_profile')
+      .eq('id', authUser.id)
+      .single();
     
+    // 프로필이 없다면(첫 로그인) 생성
+    if (!dbUser && error) {
+       const { error: insertError } = await supabase
+         .from('profiles')
+         .insert({ id: authUser.id, email: email, name: name });
+       
+       if (!insertError) {
+         dbUser = { plan: 'free', risk_profile: null }; // 초기값
+       }
+    }
+
     setUser({ 
       id: authUser.id, name, email, avatar, 
-      plan: 'premium', 
-      role: dbUser?.role || (email.includes('admin') ? 'admin' : 'user'),
+      plan: dbUser?.plan || 'free', 
+      role: email.includes('admin') ? 'admin' : 'user',
       riskProfile: dbUser?.risk_profile || null,
     });
+
+    // ★ 로그인 성공 후 찜 목록 가져오기
+    fetchWatchlist(authUser.id);
   };
 
   const handleEmailAuth = async () => {
@@ -156,8 +237,11 @@ const App = () => {
       <CommonUI darkMode={darkMode} toggleDarkMode={() => setDarkMode(!darkMode)} user={user} handleLogout={handleLogout}>
         <Routes>
           <Route path="/" element={<HomePage onNavigate={(path) => navigate(path)} user={user} openRiskModal={() => setIsRiskModalOpen(true)} />} />
-          <Route path="/funds" element={<FundPage user={user} myWatchlist={myWatchlist} toggleWatchlist={(id) => { if(!user) setIsLoginModalOpen(true); else setMyWatchlist(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]) }} />} />
+          
+          {/* ★ toggleWatchlist와 myWatchlist props 전달 */}
+          <Route path="/funds" element={<FundPage user={user} myWatchlist={myWatchlist} toggleWatchlist={toggleWatchlist} />} />
           <Route path="/fund/:id" element={<FundDetailPage user={user} />} />
+          
           <Route path="/comparison" element={<FinancialComparisonPage />} />
           <Route path="/mypage" element={<MyPage user={user} watchlist={myWatchlist} />} />
           <Route path="/market" element={<MarketPage />} />
@@ -168,15 +252,13 @@ const App = () => {
           <Route path="/admin" element={<AdminPage users={INITIAL_USERS} />} />
           <Route path="/login" element={<div/>} /> 
           
-          {/* Footer 링크 연결 */}
+          {/* Static Pages */}
           <Route path="/about" element={<AboutPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/security" element={<SecurityPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/status" element={<StatusPage />} />
-          {/* 👇 [수정] ContactPage 라우트는 삭제됨 */}
-
         </Routes>
       </CommonUI>
       

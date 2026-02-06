@@ -2,38 +2,74 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Heart, Info, Check, Globe, DollarSign, Flag, BarChart2, 
-  LayoutList, ScatterChart as ChartIcon, TrendingUp // ★ 아이콘 추가
+  LayoutList, ScatterChart as ChartIcon, TrendingUp, Loader2, ChevronRight
 } from 'lucide-react';
 import { 
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
-} from 'recharts'; // ★ 차트 라이브러리 추가
+} from 'recharts';
 
-// Import real data
-import { funds } from '../data/realData';
-// ★ PremiumLock 컴포넌트 import (경로 확인 필요)
+import { supabase } from '../lib/supabase';
 import PremiumLock from '../components/PremiumLock';
 
-const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 함
+const FundPage = ({ user, myWatchlist, toggleWatchlist }) => { 
   const navigate = useNavigate();
   
-  // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [viewMode, setViewMode] = useState('list'); // ★ 'list' or 'map' 추가
+  const [viewMode, setViewMode] = useState('list');
   
-  // State for selected fund IDs for comparison
+  const [dbFunds, setDbFunds] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [selectedFundIds, setSelectedFundIds] = useState([]);
 
-  // 워치리스트 상태 관리 (localStorage 연동)
-  const [watchListIds, setWatchListIds] = useState([]);
-
-  // 초기 로드 시 localStorage에서 워치리스트 불러오기
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('moneyMart_watchlist') || '[]');
-    setWatchListIds(saved);
-  }, []);
+    const fetchFunds = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('funds')
+          .select('*')
+          .order('return_rate', { ascending: false });
 
-  const safeFunds = funds || [];
+        if (error) throw error;
+
+        const formattedData = data.map(item => {
+          const basePrice = item.base_price || 10000; 
+          const changePrice = item.change_price || 0;
+          const changePercent = basePrice !== 0 
+            ? ((changePrice / basePrice) * 100).toFixed(2) 
+            : '0.00';
+
+          return {
+            id: item.id,
+            fundName: item.name,
+            fundCode: item.code,
+            category: item.category,
+            managementCompany: item.company,
+            trustFee: item.fee ? item.fee + '%' : '-',
+            annualReturn: item.return_rate ? (item.return_rate > 0 ? '+' : '') + item.return_rate + '%' : '-',
+            returnRate1Y: Number(item.return_rate || 0),
+            riskLevel: item.risk_level || 3,
+            aum: item.net_assets,
+            basePrice: basePrice,
+            prevComparison: changePrice,
+            prevComparisonPercent: changePercent,
+            minInvest: 100,
+            isNew: false 
+          };
+        });
+
+        setDbFunds(formattedData);
+      } catch (error) {
+        console.error('Error fetching funds:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFunds();
+  }, []);
 
   const filters = [
     { id: 'all', label: 'すべて', icon: Check },
@@ -42,9 +78,8 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
     { id: 'lowcost', label: '低コスト', icon: DollarSign },
   ];
 
-  // Filtering logic
   const filteredFunds = useMemo(() => {
-    let result = safeFunds;
+    let result = dbFunds;
     if (searchTerm) {
       result = result.filter(fund => 
         (fund.fundName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,10 +88,9 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
     }
     if (activeFilter !== 'all') {
       if (activeFilter === 'domestic') result = result.filter(f => f.category?.includes('国内'));
-      if (activeFilter === 'global') result = result.filter(f => f.category?.includes('海外') || f.category?.includes('外国') || f.category?.includes('全世界'));
+      if (activeFilter === 'global') result = result.filter(f => f.category?.includes('海外') || f.category?.includes('外国') || f.category?.includes('全世界') || f.category?.includes('先進国'));
       if (activeFilter === 'lowcost') {
         result = result.filter(f => {
-          // 문자열 '%' 제거 후 숫자 변환 안전 처리
           const feeStr = String(f.trustFee || '100').replace('%', '');
           const fee = parseFloat(feeStr);
           return fee < 0.2; 
@@ -64,27 +98,19 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
       }
     }
     return result;
-  }, [searchTerm, activeFilter, safeFunds]);
+  }, [searchTerm, activeFilter, dbFunds]);
 
-  // ★ 리스크 맵용 데이터 변환
   const mapData = useMemo(() => filteredFunds.map(f => {
-    // 수익률 문자열 파싱 ('+15.5%' -> 15.5)
-    let returnVal = 0;
-    if (f.returnRate1Y) returnVal = f.returnRate1Y;
-    else if (f.annualReturn) returnVal = parseFloat(String(f.annualReturn).replace('%', '').replace('+', ''));
-
     return {
         id: f.id,
-        // X축: 리스크 (점이 겹치지 않게 약간의 랜덤 노이즈 추가)
         x: (f.riskLevel || 3) + (Math.random() * 0.4 - 0.2), 
-        y: returnVal, 
+        y: f.returnRate1Y, 
         name: f.fundName,
         category: f.category,
         risk: f.riskLevel
     };
   }), [filteredFunds]);
 
-  // ★ 차트용 커스텀 툴팁
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -103,31 +129,18 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
     return null;
   };
 
-  // Handler for toggling checkboxes (비교용)
+  // 체크박스 클릭 핸들러 (비교함 담기/빼기)
   const handleCheckboxChange = (e, fundId) => {
-    e.stopPropagation();
+    e.stopPropagation(); // ★ 중요: 상세 페이지 이동 방지
     if (selectedFundIds.includes(fundId)) {
         setSelectedFundIds(selectedFundIds.filter(id => id !== fundId));
     } else {
-        if (selectedFundIds.length >= 3) {
-            alert("比較は最大3件まで選択可能です。");
+        if (selectedFundIds.length >= 2) { 
+            alert("比較は最大2件まで選択可能です。");
             return;
         }
         setSelectedFundIds([...selectedFundIds, fundId]);
     }
-  };
-
-  // 워치리스트 토글 핸들러
-  const toggleWatchlist = (e, fundId) => {
-    e.stopPropagation();
-    let newIds;
-    if (watchListIds.includes(fundId)) {
-        newIds = watchListIds.filter(id => id !== fundId);
-    } else {
-        newIds = [...watchListIds, fundId];
-    }
-    setWatchListIds(newIds);
-    localStorage.setItem('moneyMart_watchlist', JSON.stringify(newIds));
   };
 
   const goToComparison = () => {
@@ -138,6 +151,15 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
     navigate('/comparison', { state: { selectedFundIds } });
   };
 
+  if (isLoading) {
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+            <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
+            <p className="text-slate-500 font-bold">データを読み込んでいます...</p>
+        </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 animate-fadeIn bg-[#F9FAFB] min-h-screen font-sans pb-32">
       
@@ -145,10 +167,9 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
       <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
         <div>
             <h1 className="text-3xl font-black text-slate-900 mb-2">ファンド検索</h1>
-            <p className="text-slate-500 text-sm">全{safeFunds.length}件のファンドからAIが分析</p>
+            <p className="text-slate-500 text-sm">全{dbFunds.length}件のファンドからAIが分析</p>
         </div>
         
-        {/* ★ View Mode Toggle Button */}
         <div className="flex bg-white border border-gray-200 p-1 rounded-xl shadow-sm">
           <button 
             onClick={() => setViewMode('list')}
@@ -199,7 +220,7 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
         ))}
       </div>
 
-      {/* --- ★ [NEW] Risk-Return Map View (Premium Locked) --- */}
+      {/* --- Risk-Return Map View (Premium Locked) --- */}
       {viewMode === 'map' ? (
         <PremiumLock user={user} title="効率的フロンティア分析 (Beta)">
             <div className="bg-white rounded-[2rem] p-6 border border-gray-200 shadow-lg mb-8 relative overflow-hidden">
@@ -253,44 +274,55 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
             {/* Fund Items */}
             <div className="divide-y divide-gray-100">
             {filteredFunds.map((fund) => {
-                const isPlus = (fund.prevComparison || 0) >= 0;
+                const isPlus = (parseFloat(fund.prevComparisonPercent) || 0) >= 0;
                 const riskLevel = fund.riskLevel || 3;
                 const isHighRisk = riskLevel >= 4;
                 const isSelected = selectedFundIds.includes(fund.id);
-                const isWatchlisted = watchListIds.includes(fund.id);
+                const isWatchlisted = Array.isArray(myWatchlist) && myWatchlist.includes(fund.id);
                 
-                // ★ [NEW] 신규 펀드 여부 체크 (예: ID가 's1', 's5' 이거나 데이터에 isNew가 있을 경우)
-                // 실제 데이터가 없으므로 임의로 ID 's1'을 신규로 가정
-                const isNewFund = fund.id === 's1' || fund.id === 1;
-
                 return (
                 <div 
                     key={fund.id}
+                    // ★ [수정] 카드 전체 클릭 시 상세 페이지 이동
                     onClick={() => navigate(`/fund/${fund.id}`)}
                     className={`grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-6 items-center transition cursor-pointer group relative
                         ${isSelected ? 'bg-orange-50' : 'hover:bg-gray-50'}`} 
                 >
-                    {/* ★ [NEW] 신규 펀드 배지 */}
-                    {isNewFund && (
+                    {fund.isNew && (
                         <div className="absolute top-0 left-0 bg-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-br-lg z-10 shadow-sm animate-pulse">
                             NEW
                         </div>
                     )}
 
-                    {/* 1. Checkbox (Desktop) */}
-                    <div className="col-span-1 hidden md:flex justify-center items-center" onClick={(e) => e.stopPropagation()}>
+                    {/* 1. Checkbox (Desktop) - 비교 선택용 */}
                     <div 
-                        onClick={(e) => handleCheckboxChange(e, fund.id)}
-                        className={`w-6 h-6 rounded border-2 flex items-center justify-center cursor-pointer transition-colors
-                        ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300 bg-white hover:border-orange-400'}`}
+                        className="col-span-1 hidden md:flex justify-center items-center" 
+                        onClick={(e) => e.stopPropagation()} // 부모 클릭 방지
                     >
-                        {isSelected && <Check size={16} strokeWidth={3} />}
-                    </div>
+                        <div 
+                            onClick={(e) => handleCheckboxChange(e, fund.id)}
+                            className={`w-6 h-6 rounded border-2 flex items-center justify-center cursor-pointer transition-colors
+                            ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300 bg-white hover:border-orange-400'}`}
+                        >
+                            {isSelected && <Check size={16} strokeWidth={3} />}
+                        </div>
                     </div>
 
                     {/* 2. Fund Info */}
                     <div className="col-span-1 md:col-span-4 pl-0 md:pl-2 relative">
-                    {/* Checkbox (Mobile) */}
+                    
+                    {/* Watchlist Button (Mobile) */}
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWatchlist(fund.id);
+                        }}
+                        className="absolute right-0 top-0 md:hidden p-2 text-gray-400 z-10"
+                    >
+                        <Heart size={20} fill={isWatchlisted ? "#EF4444" : "none"} className={isWatchlisted ? "text-red-500" : ""} />
+                    </button>
+
+                    {/* Mobile Comparison Checkbox */}
                     <div className="md:hidden flex items-center mb-2" onClick={(e) => handleCheckboxChange(e, fund.id)}>
                         <div className={`w-5 h-5 rounded border mr-2 flex items-center justify-center ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300'}`}>
                             {isSelected && <Check size={12} />}
@@ -298,20 +330,17 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
                         <span className="text-xs text-gray-500 font-bold">比較リストに追加</span>
                     </div>
 
-                    {/* Watchlist Button (Mobile) */}
-                    <button 
-                        onClick={(e) => toggleWatchlist(e, fund.id)}
-                        className="absolute right-0 top-0 md:hidden p-2 text-gray-400 z-10"
-                    >
-                        <Heart size={20} fill={isWatchlisted ? "#EF4444" : "none"} className={isWatchlisted ? "text-red-500" : ""} />
-                    </button>
+                    <div className="flex items-start justify-between">
+                        <div className="pr-4">
+                            <h3 className="font-bold text-base text-gray-900 mb-1 group-hover:text-orange-600 transition-colors line-clamp-2">
+                                {fund.fundName}
+                            </h3>
+                            <p className="text-sm text-gray-500 font-medium mb-2">
+                                {fund.managementCompany}
+                            </p>
+                        </div>
+                    </div>
 
-                    <h3 className="font-bold text-base text-gray-900 mb-1 group-hover:text-orange-600 transition-colors line-clamp-2 pr-8 md:pr-0">
-                        {fund.fundName}
-                    </h3>
-                    <p className="text-sm text-gray-500 font-medium mb-2">
-                        {fund.fundNameEn || `${fund.managementCompany} Fund`}
-                    </p>
                     <div className="flex gap-2 items-center flex-wrap">
                         <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded font-bold">
                         {fund.category}
@@ -333,7 +362,7 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
                     <div className="col-span-1 md:col-span-2 flex justify-between md:block text-center">
                     <span className="md:hidden text-gray-400 text-xs">年間リターン</span>
                     <span className="text-xl font-black text-orange-500">
-                        {fund.annualReturn || fund.returnRate1Y + '%'}
+                        {fund.annualReturn}
                     </span>
                     </div>
 
@@ -344,12 +373,12 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
 
                     {/* 5. Min Investment */}
                     <div className="col-span-1 hidden md:block text-center text-gray-700 font-medium text-sm">
-                    ¥{fund.minInvest?.toLocaleString() || 100}
+                    ¥{fund.minInvest?.toLocaleString()}
                     </div>
 
                     {/* 6. AUM */}
                     <div className="col-span-1 hidden md:block text-right text-gray-700 font-medium text-sm whitespace-nowrap">
-                    {fund.aum || '500億円'}
+                    {fund.aum}
                     </div>
 
                     {/* 7. Base Price */}
@@ -364,7 +393,10 @@ const FundPage = ({ user }) => { // ★ App.js에서 user를 props로 받아야 
                         </div>
                     </div>
                     <button 
-                            onClick={(e) => toggleWatchlist(e, fund.id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleWatchlist(fund.id);
+                            }}
                             className={`hidden md:inline-flex mt-2 items-center gap-1 text-xs px-2 py-1 rounded-full transition
                                 ${isWatchlisted ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:bg-gray-100'}`}
                         >

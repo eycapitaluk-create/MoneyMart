@@ -1,64 +1,94 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Check, X, AlertCircle, TrendingUp 
+  ArrowLeft, Check, X, AlertCircle, TrendingUp, Loader2 
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 
-import { funds } from '../data/realData';
+// ★ DB 연결 도구
+import { supabase } from '../lib/supabase';
 
-// 라인 차트용 색상 팔레트 (2개용)
+// 라인 차트용 색상 팔레트
 const COLORS = ['#F97316', '#3B82F6']; // Orange, Blue
 
 const ComparisonPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 1. 데이터 변환
-  const allProducts = funds.map(fund => {
-     const parsePercent = (val) => {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        return parseFloat(val.replace('%', '').replace(',', ''));
-     };
-
-     return {
-        id: fund.id,
-        name: fund.fundName,
-        type: fund.category,
-        displayCode: fund.shortCode || fund.fundCode || '', 
-        fee: parsePercent(fund.trustFee),
-        returnRate: parsePercent(fund.annualReturn || fund.prevComparisonPercent),
-        risk: fund.riskLevel,
-        company: fund.managementCompany,
-        netAssets: fund.aum
-     };
-  });
-
+  // ★ DB 데이터 상태 관리
+  const [allProducts, setAllProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
 
+  // 1. DB에서 펀드 데이터 가져오기
   useEffect(() => {
-    if (location.state) {
-        if (location.state.selectedFundIds) {
-            setSelectedIds(location.state.selectedFundIds);
-        }
-        else if (location.state.initialFundId) {
-            setSelectedIds(prev => {
-                if (prev.includes(location.state.initialFundId)) return prev;
-                // 2개 이상이면 1개만 남기고 새로 들어온 것 추가
-                if (prev.length >= 2) return [location.state.initialFundId, ...prev.slice(0, 1)];
-                return [...prev, location.state.initialFundId];
-            });
-        }
+    const fetchFunds = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('funds')
+          .select('*')
+          .order('return_rate', { ascending: false });
+
+        if (error) throw error;
+
+        // DB 데이터를 비교 페이지 형식에 맞게 변환
+        const formattedData = data.map(fund => ({
+          id: fund.id,
+          name: fund.name,
+          type: fund.category,
+          displayCode: fund.code,
+          fee: Number(fund.fee || 0), 
+          returnRate: Number(fund.return_rate || 0),
+          risk: fund.risk_level,
+          company: fund.company,
+          netAssets: fund.net_assets
+        }));
+
+        setAllProducts(formattedData);
+      } catch (err) {
+        console.error('Error fetching comparison data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFunds();
+  }, []);
+
+  // 2. 초기 선택값 설정 (★ 안전장치 추가: ID 불일치 해결)
+  useEffect(() => {
+    if (allProducts.length === 0) return;
+
+    let targetIds = [];
+
+    // (1) 넘어온 ID 확인
+    if (location.state?.selectedFundIds) {
+        // 메인 검색 페이지에서 선택해서 온 경우
+        targetIds = location.state.selectedFundIds;
+    }
+    else if (location.state?.initialFundId) {
+        // 상세 페이지에서 '비교하기' 눌러서 온 경우 -> 기존 선택 유지하며 추가
+        targetIds = [...selectedIds, location.state.initialFundId];
+    }
+
+    // (2) ★ [핵심] DB에 진짜 존재하는 ID인지 검증 (DB 초기화로 인한 ID 불일치 방지)
+    const validIds = targetIds.filter(id => allProducts.find(p => p.id === id));
+    
+    // 중복 제거 및 최대 2개 자르기
+    const uniqueIds = [...new Set(validIds)].slice(0, 2);
+
+    if (uniqueIds.length > 0) {
+        setSelectedIds(uniqueIds);
     } else {
-        // 기본적으로 앞의 2개 선택
+        // (3) 유효한 ID가 하나도 없으면(옛날 ID이거나 직접 접속) -> 상위 2개 자동 선택
         if (allProducts.length >= 2) {
             setSelectedIds([allProducts[0].id, allProducts[1].id]);
         }
     }
-  }, [location.state]);
+  }, [location.state, allProducts]); // selectedIds는 의존성에서 제외 (무한루프 방지)
 
   const selectedProducts = allProducts.filter(p => selectedIds.includes(p.id));
 
@@ -86,10 +116,11 @@ const ComparisonPage = () => {
         
         selectedProducts.forEach((p) => {
             const monthlyRate = p.returnRate / 12;
-            const volatility = (Math.random() - 0.5) * 1.5; 
+            const volatility = (Math.random() - 0.5) * 1.5; // 약간의 랜덤 변동성
             
             let simulatedReturn = (monthlyRate * (idx + 1)) + volatility;
             
+            // 시작과 끝은 정확하게 맞춤
             if (idx === 0) simulatedReturn = monthlyRate;
             if (idx === 11) simulatedReturn = p.returnRate;
 
@@ -98,6 +129,15 @@ const ComparisonPage = () => {
         return point;
     });
   }, [selectedProducts]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
+        <p className="text-slate-500 font-bold">比較データを準備中...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-20 animate-fadeIn bg-slate-50 min-h-screen font-sans">
@@ -122,9 +162,7 @@ const ComparisonPage = () => {
             <span className="text-xs font-normal text-gray-400">(タップで追加/解除)</span>
           </h3>
           
-          {/* ★ [수정 포인트] pt-4 추가! 
-             위쪽에 여백을 줘서 체크 표시(-top-2)가 잘리지 않게 함 
-          */}
+          {/* 가로 스크롤 영역 (체크표시 잘림 해결된 스타일 유지: pt-4, pb-6) */}
           <div className="flex gap-4 overflow-x-auto pb-6 px-1 pt-4 scrollbar-hide">
             {allProducts.map(product => (
               <div 
